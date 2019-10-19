@@ -27,6 +27,7 @@ import (
 )
 
 var cfgFile string
+var dbDirFlag string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -59,11 +60,12 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.importer.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.aether.yaml)")
+	rootCmd.PersistentFlags().StringVar(&dbDirFlag, "db-dir", "", "db directory if out of BASE (default is BASE_DIR/.aether)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -81,7 +83,7 @@ func initConfig() {
 
 		// Search config in home directory with name ".importer" (without extension).
 		viper.AddConfigPath(home)
-		viper.SetConfigName(".importer")
+		viper.SetConfigName(".aether")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

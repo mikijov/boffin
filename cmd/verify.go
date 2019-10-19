@@ -22,27 +22,27 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// scanCmd represents the scan command
-var scanCmd = &cobra.Command{
-	Use:   "scan",
-	Short: "scan directory for changes",
-	Long:  `Scan directory for changes.`,
+// verifyCmd represents the verify command
+var verifyCmd = &cobra.Command{
+	Use:   "verify",
+	Short: "verify integrity of all files in the directory",
+	Long:  `Verify directory for changes.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		// lib.Scan(args[0])
+		// lib.verify(args[0])
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(scanCmd)
+	rootCmd.AddCommand(verifyCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	scanCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// verifyCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// scanCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// verifyCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
