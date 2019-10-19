@@ -1,5 +1,4 @@
 /*
-Importer
 Copyright (C) 2019 Milutin Jovanvović
 
 This program is free software: you can redistribute it and/or modify
@@ -17,7 +16,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 package main
 
-import "github.com/mikijov/importer/cmd"
+import "github.com/mikijov/aether/cmd"
 
 func main() {
 	cmd.Execute()

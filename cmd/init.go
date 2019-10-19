@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mikijov/importer/lib"
+	"github.com/mikijov/aether/lib"
 	"github.com/spf13/cobra"
 )
 

@@ -1,5 +1,4 @@
 /*
-Importer
 Copyright (C) 2019 Milutin Jovanvović
 
 This program is free software: you can redistribute it and/or modify
@@ -31,7 +30,7 @@ var dbDirFlag string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "importer",
+	Use:   "aether",
 	Short: "A brief description of your application",
 	Long: `A longer description that spans multiple lines and likely contains
 examples and usage of using your application. For example:
@@ -81,7 +80,7 @@ func initConfig() {
 			os.Exit(1)
 		}
 
-		// Search config in home directory with name ".importer" (without extension).
+		// Search config in home directory with name ".aether" (without extension).
 		viper.AddConfigPath(home)
 		viper.SetConfigName(".aether")
 	}

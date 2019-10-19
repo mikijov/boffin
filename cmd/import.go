@@ -1,5 +1,4 @@
 /*
-Importer
 Copyright (C) 2019 Milutin Jovanvović
 
 This program is free software: you can redistribute it and/or modify
@@ -18,7 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package cmd
 
 import (
-	// "github.com/mikijov/importer/lib"
+	// "github.com/mikijov/aether/lib"
 	"github.com/spf13/cobra"
 )
 

@@ -1,4 +1,4 @@
-module github.com/mikijov/importer
+module github.com/mikijov/aether
 
 go 1.13
 
