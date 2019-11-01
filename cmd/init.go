@@ -26,7 +26,7 @@ import (
 
 // initCmd represents the init command
 var initCmd = &cobra.Command{
-	Use:   "init",
+	Use:   "init <base-dir>",
 	Short: "Create new Aether repository.",
 	Long:  `Create new Aether repository.`,
 	Args:  cobra.ExactArgs(1),

@@ -17,31 +17,56 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package cmd
 
 import (
-	// "github.com/mikijov/aether/lib"
+	"fmt"
+	"os"
+
+	"github.com/mikijov/aether/lib"
 	"github.com/spf13/cobra"
 )
 
-// scanCmd represents the scan command
-var scanCmd = &cobra.Command{
-	Use:   "scan",
-	Short: "scan directory for changes",
-	Long:  `Scan directory for changes.`,
-	Args:  cobra.ExactArgs(1),
+// updateCmd represents the update command
+var updateCmd = &cobra.Command{
+	Use:   "update",
+	Short: "update directory for changes",
+	Long:  `update directory for changes.`,
+	// Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		// lib.Scan(args[0])
+		dbDir := ""
+		if dbDirFlag != "" {
+			dbDir = dbDirFlag
+			fmt.Printf("using default '%s'\n", dbDir)
+		} else {
+			wd, err := os.Getwd()
+			if err != nil {
+				fmt.Printf("ERROR: %v\n", err)
+				os.Exit(1)
+			}
+			dbDir, err = lib.FindDbDir(wd)
+			if err != nil {
+				fmt.Printf("ERROR: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Printf("found '%s'\n", dbDir)
+		}
+		db, err := lib.LoadFileDB(dbDir)
+		if err != nil {
+			fmt.Printf("ERROR: %v\n", err)
+			os.Exit(1)
+		}
+		db.Update()
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(scanCmd)
+	rootCmd.AddCommand(updateCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	scanCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// updateCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// scanCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// updateCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

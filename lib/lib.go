@@ -17,18 +17,22 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package lib
 
-// import "io"
-import "os"
-import "fmt"
-import "path/filepath"
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"time"
+)
 
 // import "crypto/sha256"
-// import "encoding/json"
-import "time"
 
 // import "encoding/base64"
 
 const defaultDbDir = ".aether"
+const filesFilename = "files.json"
+const newFilesFilename = "files.json.tmp"
 
 // FileMeta ...
 type FileMeta struct {
@@ -52,54 +56,68 @@ func Compare(left, right FileMeta) {
 
 // FileDB ...
 type FileDB interface {
-	DbDir() string
-	BaseDir() string
+	GetDbDir() string
+	GetBaseDir() string
 	Save() error
 	Update() error
 	IsChanged() bool
 }
 
 type fileDb struct {
-	dbDir   string
-	baseDir string
-	changed bool
+	dbDir      string
+	absBaseDir string
+	changed    bool
+
+	BaseDir string     `json:"baseDir"`
+	Files   []FileMeta `json:"files"`
 }
 
-// CreateFileDB ...
-func CreateFileDB(dbDir string, baseDir string) (FileDB, error) {
-	dbDir, err := filepath.Abs(dbDir)
-	if err != nil {
-		return nil, err
-	}
-	dbDir = filepath.Clean(dbDir)
-	if _, err := os.Stat(dbDir); err != nil {
-		return nil, fmt.Errorf("'%s' already exists", dbDir)
-	}
-
-	if err := os.MkdirAll(dbDir, os.ModePerm); err != nil {
-		return nil, err
-	}
-
-	return &fileDb{
-		dbDir:   dbDir,
-		baseDir: dbDir,
-		changed: true,
-	}, nil
-}
-
-// DbDir ...
-func (db *fileDb) DbDir() string {
+// GetDbDir ...
+func (db *fileDb) GetDbDir() string {
 	return db.dbDir
 }
 
-// BaseDir ...
-func (db *fileDb) BaseDir() string {
-	return db.baseDir
+// GetBaseDir ...
+func (db *fileDb) GetBaseDir() string {
+	return db.absBaseDir
 }
 
 // Save ...
 func (db *fileDb) Save() error {
-	return fmt.Errorf("not implemented")
+	newFilename := filepath.Join(db.dbDir, newFilesFilename)
+	defer os.Remove(newFilename) // cleanup; will work only if the old file could not be replaced
+
+	{ // write new file
+
+		file, err := os.OpenFile(newFilename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0444)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		encoder := json.NewEncoder(file)
+		if encoder == nil {
+			return fmt.Errorf("failed to create json encoder")
+		}
+		encoder.SetIndent("", "  ")
+
+		encoder.Encode(db)
+
+		file.Close()
+	}
+
+	{ // now replace old file with the new one
+		filename := filepath.Join(db.dbDir, filesFilename)
+
+		if err := os.Remove(filename); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to overwrite '%s'", filename)
+		}
+		if err := os.Rename(newFilename, filename); err != nil {
+			return fmt.Errorf("critical error; failed to rename '%s' to '%s'", newFilename, filename)
+		}
+	}
+
+	return nil
 }
 
 // Update ...
@@ -142,7 +160,19 @@ func ConstuctDbDirPath(dir string) string {
 
 // InitDbDir ...
 func InitDbDir(dbDir, baseDir string) (FileDB, error) {
-	dbDir, err := cleanPath(dbDir)
+	baseDir, err := cleanPath(baseDir)
+	if err != nil {
+		return nil, err
+	}
+	info, err := os.Stat(baseDir)
+	if err != nil {
+		return nil, fmt.Errorf("'%s' does not exist", baseDir)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("'%s' is not a directory", baseDir)
+	}
+
+	dbDir, err = cleanPath(dbDir)
 	if err != nil {
 		return nil, err
 	}
@@ -155,39 +185,96 @@ func InitDbDir(dbDir, baseDir string) (FileDB, error) {
 		return nil, err
 	}
 
-	baseDir, err = cleanPath(baseDir)
+	db := &fileDb{
+		dbDir:      dbDir,
+		absBaseDir: baseDir,
+	}
+
+	if relDir, err := filepath.Rel(dbDir, baseDir); err == nil {
+		// if we can deduce relative path, use it instead of absolute one
+		db.BaseDir = relDir
+	} else {
+		db.BaseDir = baseDir
+	}
+
+	if err = db.Save(); err != nil {
+		return nil, err
+	}
+
+	return db, nil
+}
+
+// FindDbDir ...
+func FindDbDir(dir string) (string, error) {
+	dir, err := cleanPath(dir)
+	if err != nil {
+		return "", err
+	}
+
+	for true {
+		dbDir := filepath.Join(dir, defaultDbDir)
+		info, err := os.Stat(dbDir)
+		if err == nil && info.IsDir() {
+			return dbDir, nil
+		}
+		if dir == "/" {
+			break
+		}
+		dir = filepath.Dir(dir)
+	}
+
+	return "", fmt.Errorf("could not find %s dir", defaultDbDir)
+}
+
+// LoadFileDB ...
+func LoadFileDB(dbDir string) (FileDB, error) {
+	dbDir, err := cleanPath(dbDir)
 	if err != nil {
 		return nil, err
 	}
-	if relDir, err := filepath.Rel(dbDir, baseDir); err == nil {
-		// if we can deduce relative path, use it instead of absolute one
-		baseDir = relDir
+	filename := filepath.Join(dbDir, filesFilename)
+
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+
+	db := &fileDb{
+		dbDir: dbDir,
 	}
 
-	return &fileDb{
-		dbDir:   dbDir,
-		baseDir: baseDir,
-	}, nil
-}
+	if err := decoder.Decode(&db); err != nil {
+		return nil, err
+	}
 
-// func GetDbDir(dbDir, baseDir string) string, error {
-// 	if dbDir != "" {
-// 		return ensureDir(dbDir)
-// 	}
-//
-// 	for dbDir != nil {
-// 		dbDir, err := filepath.Join(baseDir, defaultDbDir)
-// 		if err == nil {
-// 			return dbDir, nil
-// 		}
-// 		dbDir, _ = filepath.Split(dbDir)
-// 	}
-//
-// 	return filepath.Join(dir, defaultDbDir), nil
-// }
-//
-// func LoadFileDB(aetherDir string) FileDB, error {
-// }
+	// ensure there is nothing after the first json object
+	dummy := &fileDb{}
+	if err = decoder.Decode(&dummy); err != io.EOF {
+		return nil, fmt.Errorf("unexpected contents at the end of config file")
+	}
+
+	if filepath.IsAbs(db.dbDir) {
+		db.absBaseDir = db.dbDir
+	} else {
+		db.absBaseDir, err = cleanPath(filepath.Join(dbDir, db.BaseDir))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	info, err := os.Stat(db.absBaseDir)
+	if err != nil {
+		return nil, fmt.Errorf("base directory '%s' does not exist", db.absBaseDir)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("base directory '%s' is not a directory", db.absBaseDir)
+	}
+
+	return db, nil
+}
 
 // type filterFunc func(info os.FileInfo) (accepted bool, reason string)
 //
