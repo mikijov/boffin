@@ -18,28 +18,31 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package lib
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 )
-
-// import "crypto/sha256"
-
-// import "encoding/base64"
 
 const defaultDbDir = ".aether"
 const filesFilename = "files.json"
 const newFilesFilename = "files.json.tmp"
+const deleted = "[deleted]"
 
-// FileMeta ...
-type FileMeta struct {
+// fileMeta ...
+type fileMeta struct {
 	Name     string    `json:"name"`
 	Size     int64     `json:"size"`
 	Time     time.Time `json:"time"`
 	Checksum []string  `json:"checksum"`
+
+	checked bool
+	changed bool
 }
 
 // comment
@@ -50,8 +53,52 @@ const (
 	Conflict
 )
 
-// Compare ...
-func Compare(left, right FileMeta) {
+func (fm *fileMeta) isChecked() bool {
+	return fm.checked
+}
+
+func (fm *fileMeta) isChanged() bool {
+	return fm.changed
+}
+
+func (fm *fileMeta) markDeleted() {
+	fm.Checksum = append(fm.Checksum, deleted)
+}
+
+func (fm *fileMeta) update(path string, info os.FileInfo) error {
+	fm.checked = true
+
+	if info.Size() == fm.Size && info.ModTime().UTC() == fm.Time {
+		// size and time matches, assume no change
+		return nil
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return err
+	}
+
+	hashStr := base64.StdEncoding.EncodeToString(hash.Sum(nil))
+	// fmt.Printf("Hash: %s\n", hashStr)
+
+	fm.Size = info.Size()
+	fm.Time = info.ModTime().UTC()
+
+	if fm.Checksum == nil {
+		fm.Checksum = []string{hashStr}
+		fm.changed = true
+	} else if len(fm.Checksum) == 0 || fm.Checksum[len(fm.Checksum)-1] != hashStr {
+		fm.Checksum = append(fm.Checksum, hashStr)
+		fm.changed = true
+	}
+
+	return nil
 }
 
 // FileDB ...
@@ -68,8 +115,8 @@ type fileDb struct {
 	absBaseDir string
 	changed    bool
 
-	BaseDir string     `json:"baseDir"`
-	Files   []FileMeta `json:"files"`
+	BaseDir string      `json:"baseDir"`
+	Files   []*fileMeta `json:"files"`
 }
 
 // GetDbDir ...
@@ -84,11 +131,14 @@ func (db *fileDb) GetBaseDir() string {
 
 // Save ...
 func (db *fileDb) Save() error {
+	if !db.changed {
+		return nil
+	}
+
 	newFilename := filepath.Join(db.dbDir, newFilesFilename)
 	defer os.Remove(newFilename) // cleanup; will work only if the old file could not be replaced
 
 	{ // write new file
-
 		file, err := os.OpenFile(newFilename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0444)
 		if err != nil {
 			return err
@@ -117,12 +167,83 @@ func (db *fileDb) Save() error {
 		}
 	}
 
+	db.changed = false
+
 	return nil
 }
 
 // Update ...
 func (db *fileDb) Update() error {
-	return fmt.Errorf("not implemented")
+	files := make(map[string]*fileMeta)
+	for _, file := range db.Files {
+		files[file.Name] = file
+	}
+
+	dir := db.GetBaseDir()
+	// fmt.Printf("dir: %s\n", dir)
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		// fmt.Printf("path: %s\n", path)
+		if err != nil {
+			fmt.Printf("%s: error getting file info: %s\n", path, err)
+			return nil
+		}
+		if info.IsDir() {
+			if info.Name() == defaultDbDir {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		root := path[:len(dir)]
+		if dir != root {
+			// TODO: just checking if the beginning of the path matches expectation
+			fmt.Printf("Root mismatch '%s' != '%s'\n", dir, root)
+		}
+
+		relPath := path[len(dir)+1:]
+
+		meta, ok := files[relPath]
+		if !ok {
+			meta = &fileMeta{
+				Name: relPath,
+			}
+			files[relPath] = meta
+		}
+
+		err = meta.update(path, info)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	fileSlice := make([]*fileMeta, 0, len(files))
+	changed := false
+	for _, file := range files {
+		if !file.isChecked() {
+			file.markDeleted()
+		} else {
+			changed = changed || file.isChanged()
+		}
+		fileSlice = append(fileSlice, file)
+	}
+
+	if changed {
+		sort.Slice(fileSlice, func(i, j int) bool {
+			return fileSlice[i].Name < fileSlice[j].Name
+		})
+		db.Files = fileSlice
+
+		db.changed = changed
+	}
+
+	return nil
 }
 
 // IsChanged ...
@@ -137,21 +258,6 @@ func cleanPath(dir string) (string, error) {
 	}
 	return filepath.Clean(dir), nil
 }
-
-// func ensureDir(dir string) string, error {
-// 	dir, err := cleanPath(dir)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	info, err := os.Stat(dir)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if !info.IsDir() {
-// 		return nil, fmt.Errorf("'%s' is not a directory", dir)
-// 	}
-// 	return dir, nil
-// }
 
 // ConstuctDbDirPath ...
 func ConstuctDbDirPath(dir string) string {
@@ -188,6 +294,7 @@ func InitDbDir(dbDir, baseDir string) (FileDB, error) {
 	db := &fileDb{
 		dbDir:      dbDir,
 		absBaseDir: baseDir,
+		changed:    true,
 	}
 
 	if relDir, err := filepath.Rel(dbDir, baseDir); err == nil {
@@ -256,8 +363,8 @@ func LoadFileDB(dbDir string) (FileDB, error) {
 		return nil, fmt.Errorf("unexpected contents at the end of config file")
 	}
 
-	if filepath.IsAbs(db.dbDir) {
-		db.absBaseDir = db.dbDir
+	if filepath.IsAbs(db.BaseDir) {
+		db.absBaseDir = db.BaseDir
 	} else {
 		db.absBaseDir, err = cleanPath(filepath.Join(dbDir, db.BaseDir))
 		if err != nil {
@@ -275,98 +382,3 @@ func LoadFileDB(dbDir string) (FileDB, error) {
 
 	return db, nil
 }
-
-// type filterFunc func(info os.FileInfo) (accepted bool, reason string)
-//
-// func okFilter(info os.FileInfo) (accepted bool, reason string) {
-// 	return true, ""
-// }
-//
-// func getFiles(dir string, accept filterFunc) error {
-// 	dir, err := filepath.Abs(dir)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	dir = filepath.Clean(dir)
-// 	info, err := os.Stat(dir)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	if !info.IsDir() {
-// 		return fmt.Errorf("'%s' is not a directory", dir)
-// 	}
-//
-// 	encoder := json.NewEncoder(os.Stdout)
-// 	if encoder == nil {
-// 		return fmt.Errorf("failed to create json encoder")
-// 	}
-// 	encoder.Encode('[')
-//
-// 	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-// 		if err != nil {
-// 			fmt.Printf("%s: error getting file info: %s\n", path, err)
-// 			return nil
-// 		}
-// 		if info.IsDir() {
-// 			return nil
-// 		}
-//
-// 		if accept != nil {
-// 			if ok, reason := accept(info); !ok {
-// 				fmt.Printf("%s: skipping: %s\n", path, reason)
-// 				return nil
-// 			}
-// 		}
-//
-// 		root := path[:len(dir)]
-// 		if dir != root {
-// 			// TODO: just checking if the beginning of the path matches expectation
-// 			fmt.Printf("Root mismatch '%s' != '%s'\n", dir, root)
-// 		}
-//
-// 		file, err := os.Open(path)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		defer file.Close()
-//
-// 		hash := sha256.New()
-// 		if _, err := io.Copy(hash, file); err != nil {
-// 			return err
-// 		}
-//
-// 		path = path[len(dir)+1:]
-//
-// 		meta := &FileMeta{
-// 			Name:     path,
-// 			Size:     info.Size(),
-// 			Time:     info.ModTime().UTC(),
-// 			Checksum: []string{base64.StdEncoding.EncodeToString(hash.Sum(nil))},
-// 		}
-//
-// 		encoder.Encode(meta)
-// 		// // buf, err := json.MarshalIndent(c, "", "  ")
-// 		// buf, err := json.Marshal(meta)
-// 		// if err != nil {
-// 		// 	return err
-// 		// }
-// 		//
-// 		// fmt.Printf("%s\n", string(buf))
-//
-// 		return nil
-// 	})
-//
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	encoder.Encode(']')
-//
-// 	return nil
-// }
-
-// // Scan ...
-// func Scan(dir string) error {
-//
-// 	db := LoadFileDB(dir)
-// }

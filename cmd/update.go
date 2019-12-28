@@ -34,7 +34,6 @@ var updateCmd = &cobra.Command{
 		dbDir := ""
 		if dbDirFlag != "" {
 			dbDir = dbDirFlag
-			fmt.Printf("using default '%s'\n", dbDir)
 		} else {
 			wd, err := os.Getwd()
 			if err != nil {
@@ -46,14 +45,24 @@ var updateCmd = &cobra.Command{
 				fmt.Printf("ERROR: %v\n", err)
 				os.Exit(1)
 			}
-			fmt.Printf("found '%s'\n", dbDir)
 		}
 		db, err := lib.LoadFileDB(dbDir)
 		if err != nil {
 			fmt.Printf("ERROR: %v\n", err)
 			os.Exit(1)
 		}
-		db.Update()
+		if err = db.Update(); err != nil {
+			fmt.Printf("ERROR: %v\n", err)
+			os.Exit(1)
+		}
+		if !db.IsChanged() {
+			fmt.Printf("DB is not changed.\n")
+		} else {
+			if err = db.Save(); err != nil {
+				fmt.Printf("ERROR: %v\n", err)
+				os.Exit(1)
+			}
+		}
 	},
 }
 
