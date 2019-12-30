@@ -46,7 +46,7 @@ var updateCmd = &cobra.Command{
 				os.Exit(1)
 			}
 		}
-		db, err := lib.LoadFileDB(dbDir)
+		db, err := lib.LoadFileDb(dbDir)
 		if err != nil {
 			fmt.Printf("ERROR: %v\n", err)
 			os.Exit(1)
@@ -55,13 +55,9 @@ var updateCmd = &cobra.Command{
 			fmt.Printf("ERROR: %v\n", err)
 			os.Exit(1)
 		}
-		if !db.IsChanged() {
-			fmt.Printf("DB is not changed.\n")
-		} else {
-			if err = db.Save(); err != nil {
-				fmt.Printf("ERROR: %v\n", err)
-				os.Exit(1)
-			}
+		if err = db.Save(); err != nil {
+			fmt.Printf("ERROR: %v\n", err)
+			os.Exit(1)
 		}
 	},
 }

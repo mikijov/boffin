@@ -17,6 +17,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package cmd
 
 import (
+	// "fmt"
+	// "os"
+
 	// "github.com/mikijov/aether/lib"
 	"github.com/spf13/cobra"
 )
@@ -28,7 +31,30 @@ var verifyCmd = &cobra.Command{
 	Long:  `Verify directory for changes.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		// lib.verify(args[0])
+		// dbDir := ""
+		// if dbDirFlag != "" {
+		// 	dbDir = dbDirFlag
+		// } else {
+		// 	wd, err := os.Getwd()
+		// 	if err != nil {
+		// 		fmt.Printf("ERROR: %v\n", err)
+		// 		os.Exit(1)
+		// 	}
+		// 	dbDir, err = lib.FindDbDir(wd)
+		// 	if err != nil {
+		// 		fmt.Printf("ERROR: %v\n", err)
+		// 		os.Exit(1)
+		// 	}
+		// }
+		// db, err := lib.LoadFileDB(dbDir)
+		// if err != nil {
+		// 	fmt.Printf("ERROR: %v\n", err)
+		// 	os.Exit(1)
+		// }
+		// if err = db.Verify(); err != nil {
+		// 	fmt.Printf("ERROR: %v\n", err)
+		// 	os.Exit(1)
+		// }
 	},
 }
 

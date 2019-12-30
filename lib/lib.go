@@ -34,8 +34,8 @@ const filesFilename = "files.json"
 const newFilesFilename = "files.json.tmp"
 const deleted = "[deleted]"
 
-// fileMeta ...
-type fileMeta struct {
+// FileMeta ...
+type FileMeta struct {
 	Name     string    `json:"name"`
 	Size     int64     `json:"size"`
 	Time     time.Time `json:"time"`
@@ -45,32 +45,68 @@ type fileMeta struct {
 	changed bool
 }
 
-// comment
-const (
-	Equal = iota
-	LeftChanged
-	RightChanged
-	Conflict
-)
+// FileDb ...
+type FileDb interface {
+	GetDbDir() string
+	GetBaseDir() string
 
-func (fm *fileMeta) isChecked() bool {
+	GetFile(path string) *FileMeta
+
+	Save() error
+	Update() error
+	Import(remote FileDb) error
+}
+
+//  88888888b oo dP          8888ba.88ba             dP
+//  88           88          88  `8b  `8b            88
+// a88aaaa    dP 88 .d8888b. 88   88   88 .d8888b. d8888P .d8888b.
+//  88        88 88 88ooood8 88   88   88 88ooood8   88   88'  `88
+//  88        88 88 88.  ... 88   88   88 88.  ...   88   88.  .88
+//  dP        dP dP `88888P' dP   dP   dP `88888P'   dP   `88888P8
+
+func (fm *FileMeta) isChecked() bool {
 	return fm.checked
 }
 
-func (fm *fileMeta) isChanged() bool {
+func (fm *FileMeta) isChanged() bool {
 	return fm.changed
 }
 
-func (fm *fileMeta) markDeleted() {
-	fm.Checksum = append(fm.Checksum, deleted)
+func (fm *FileMeta) isDeleted() bool {
+	l := len(fm.Checksum)
+	if l == 0 {
+		return false
+	}
+	return fm.Checksum[l-1] == deleted
 }
 
-func (fm *fileMeta) update(path string, info os.FileInfo) error {
-	fm.checked = true
+func (fm *FileMeta) markDeleted() {
+	// fmt.Printf("deleting %s\n", fm.Name)
+	if !fm.isDeleted() {
+		fm.Checksum = append(fm.Checksum, deleted)
+		fm.Size = 0
+		fm.Time = time.Now().UTC()
+		fm.changed = true
+	}
+}
 
-	if info.Size() == fm.Size && info.ModTime().UTC() == fm.Time {
-		// size and time matches, assume no change
-		return nil
+func (fm *FileMeta) markChecked() {
+	fm.checked = true
+}
+
+func (fm *FileMeta) markChanged() {
+	fm.changed = true
+}
+
+func (fm *FileMeta) update(path string, info os.FileInfo) error {
+	fm.checked = true
+	// fmt.Printf("checking %s\n", fm.Name)
+
+	if !fm.isDeleted() {
+		if info.Size() == fm.Size && info.ModTime().UTC() == fm.Time {
+			// size and time matches, assume no change
+			return nil
+		}
 	}
 
 	file, err := os.Open(path)
@@ -101,22 +137,28 @@ func (fm *fileMeta) update(path string, info os.FileInfo) error {
 	return nil
 }
 
-// FileDB ...
-type FileDB interface {
-	GetDbDir() string
-	GetBaseDir() string
-	Save() error
-	Update() error
-	IsChanged() bool
-}
+// .8888b oo dP          888888ba  dP
+// 88   "    88          88    `8b 88
+// 88aaa  dP 88 .d8888b. 88     88 88d888b.
+// 88     88 88 88ooood8 88     88 88'  `88
+// 88     88 88 88.  ... 88    .8P 88.  .88
+// dP     dP dP `88888P' 8888888P  88Y8888'
 
 type fileDb struct {
 	dbDir      string
 	absBaseDir string
-	changed    bool
 
+	baseDir string // this is simply kept for saving purposes
+	files   map[string]*FileMeta
+}
+
+type jsonStruct struct {
+	V1 *v1Struct `json:"v1"`
+}
+
+type v1Struct struct {
 	BaseDir string      `json:"baseDir"`
-	Files   []*fileMeta `json:"files"`
+	Files   []*FileMeta `json:"files"`
 }
 
 // GetDbDir ...
@@ -129,10 +171,28 @@ func (db *fileDb) GetBaseDir() string {
 	return db.absBaseDir
 }
 
+func (db *fileDb) GetFile(path string) *FileMeta {
+	if file, ok := db.files[path]; ok {
+		return file
+	}
+	return nil
+}
+
 // Save ...
 func (db *fileDb) Save() error {
-	if !db.changed {
-		return nil
+	// prepare simplified json structure
+	fileSlice := make([]*FileMeta, 0, len(db.files))
+	for _, file := range db.files {
+		fileSlice = append(fileSlice, file)
+	}
+	sort.Slice(fileSlice, func(i, j int) bool {
+		return fileSlice[i].Name < fileSlice[j].Name
+	})
+	rawDb := &jsonStruct{
+		V1: &v1Struct{
+			BaseDir: db.baseDir,
+			Files:   fileSlice,
+		},
 	}
 
 	newFilename := filepath.Join(db.dbDir, newFilesFilename)
@@ -151,9 +211,7 @@ func (db *fileDb) Save() error {
 		}
 		encoder.SetIndent("", "  ")
 
-		encoder.Encode(db)
-
-		file.Close()
+		encoder.Encode(rawDb)
 	}
 
 	{ // now replace old file with the new one
@@ -167,29 +225,29 @@ func (db *fileDb) Save() error {
 		}
 	}
 
-	db.changed = false
-
 	return nil
 }
 
 // Update ...
 func (db *fileDb) Update() error {
-	files := make(map[string]*fileMeta)
-	for _, file := range db.Files {
-		files[file.Name] = file
+	dir := db.GetBaseDir()
+
+	info, err := os.Stat(dir)
+	if err != nil {
+		return fmt.Errorf("base directory '%s' does not exist", dir)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("base directory '%s' is not a directory", dir)
 	}
 
-	dir := db.GetBaseDir()
-	// fmt.Printf("dir: %s\n", dir)
-
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		// fmt.Printf("path: %s\n", path)
+	// fmt.Printf("walking %s\n", dir)
+	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			fmt.Printf("%s: error getting file info: %s\n", path, err)
 			return nil
 		}
 		if info.IsDir() {
-			if info.Name() == defaultDbDir {
+			if info.Name() == defaultDbDir { // skip DB directory
 				return filepath.SkipDir
 			}
 			return nil
@@ -203,15 +261,18 @@ func (db *fileDb) Update() error {
 
 		relPath := path[len(dir)+1:]
 
-		meta, ok := files[relPath]
+		file, ok := db.files[relPath]
 		if !ok {
-			meta = &fileMeta{
+			// fmt.Printf("new file %s\n", relPath)
+			file = &FileMeta{
 				Name: relPath,
 			}
-			files[relPath] = meta
+			db.files[relPath] = file
+			// } else {
+			// 	fmt.Printf("existing file %s\n", relPath)
 		}
 
-		err = meta.update(path, info)
+		err = (*file).update(path, info)
 		if err != nil {
 			return err
 		}
@@ -223,32 +284,89 @@ func (db *fileDb) Update() error {
 		return err
 	}
 
-	fileSlice := make([]*fileMeta, 0, len(files))
-	changed := false
-	for _, file := range files {
+	for _, file := range db.files {
 		if !file.isChecked() {
 			file.markDeleted()
-		} else {
-			changed = changed || file.isChanged()
 		}
-		fileSlice = append(fileSlice, file)
-	}
-
-	if changed {
-		sort.Slice(fileSlice, func(i, j int) bool {
-			return fileSlice[i].Name < fileSlice[j].Name
-		})
-		db.Files = fileSlice
-
-		db.changed = changed
 	}
 
 	return nil
 }
 
-// IsChanged ...
-func (db *fileDb) IsChanged() bool {
-	return db.changed
+// Import ...
+func (db *fileDb) Import(remote FileDb) error {
+	return fmt.Errorf("not implemented")
+	// files := make(map[string]*FileMeta)
+	// for _, file := range db.Files {
+	// 	files[file.Name] = file
+	// }
+	//
+	// dir := db.GetBaseDir()
+	//
+	// err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	// 	if err != nil {
+	// 		fmt.Printf("%s: error getting file info: %s\n", path, err)
+	// 		return nil
+	// 	}
+	// 	if info.IsDir() {
+	// 		if info.Name() == defaultDbDir {
+	// 			return filepath.SkipDir
+	// 		}
+	// 		return nil
+	// 	}
+	//
+	// 	root := path[:len(dir)]
+	// 	if dir != root {
+	// 		// TODO: just checking if the beginning of the path matches expectation
+	// 		fmt.Printf("Root mismatch '%s' != '%s'\n", dir, root)
+	// 	}
+	//
+	// 	relPath := path[len(dir)+1:]
+	//
+	// 	meta, ok := files[relPath]
+	// 	if !ok {
+	// 		meta = &FileMeta{
+	// 			Name: relPath,
+	// 		}
+	// 		files[relPath] = meta
+	// 	}
+	//
+	// 	err = meta.update(path, info)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	//
+	// 	return nil
+	// })
+	//
+	// if err != nil {
+	// 	return err
+	// }
+	//
+	// fileSlice := make([]*FileMeta, 0, len(files))
+	// changed := false
+	// for _, file := range files {
+	// 	if !file.isChecked() {
+	// 		if !file.isDeleted() {
+	// 			file.markDeleted()
+	// 			changed = true
+	// 		}
+	// 	} else {
+	// 		changed = changed || file.isChanged()
+	// 	}
+	// 	fileSlice = append(fileSlice, file)
+	// }
+	//
+	// if changed {
+	// 	sort.Slice(fileSlice, func(i, j int) bool {
+	// 		return fileSlice[i].Name < fileSlice[j].Name
+	// 	})
+	// 	db.Files = fileSlice
+	//
+	// 	db.changed = changed
+	// }
+	//
+	// return nil
 }
 
 func cleanPath(dir string) (string, error) {
@@ -265,7 +383,7 @@ func ConstuctDbDirPath(dir string) string {
 }
 
 // InitDbDir ...
-func InitDbDir(dbDir, baseDir string) (FileDB, error) {
+func InitDbDir(dbDir, baseDir string) (FileDb, error) {
 	baseDir, err := cleanPath(baseDir)
 	if err != nil {
 		return nil, err
@@ -294,14 +412,13 @@ func InitDbDir(dbDir, baseDir string) (FileDB, error) {
 	db := &fileDb{
 		dbDir:      dbDir,
 		absBaseDir: baseDir,
-		changed:    true,
 	}
 
 	if relDir, err := filepath.Rel(dbDir, baseDir); err == nil {
 		// if we can deduce relative path, use it instead of absolute one
-		db.BaseDir = relDir
+		db.baseDir = relDir
 	} else {
-		db.BaseDir = baseDir
+		db.baseDir = baseDir
 	}
 
 	if err = db.Save(); err != nil {
@@ -333,8 +450,8 @@ func FindDbDir(dir string) (string, error) {
 	return "", fmt.Errorf("could not find %s dir", defaultDbDir)
 }
 
-// LoadFileDB ...
-func LoadFileDB(dbDir string) (FileDB, error) {
+// LoadFileDb ...
+func LoadFileDb(dbDir string) (FileDb, error) {
 	dbDir, err := cleanPath(dbDir)
 	if err != nil {
 		return nil, err
@@ -349,36 +466,42 @@ func LoadFileDB(dbDir string) (FileDB, error) {
 
 	decoder := json.NewDecoder(file)
 
-	db := &fileDb{
-		dbDir: dbDir,
-	}
+	rawDb := &jsonStruct{}
 
-	if err := decoder.Decode(&db); err != nil {
+	if err := decoder.Decode(&rawDb); err != nil {
 		return nil, err
 	}
 
 	// ensure there is nothing after the first json object
-	dummy := &fileDb{}
+	dummy := &jsonStruct{}
 	if err = decoder.Decode(&dummy); err != io.EOF {
 		return nil, fmt.Errorf("unexpected contents at the end of config file")
 	}
 
-	if filepath.IsAbs(db.BaseDir) {
-		db.absBaseDir = db.BaseDir
+	if rawDb.V1 == nil {
+		return nil, fmt.Errorf("config file is empty")
+	}
+
+	db := &fileDb{
+		dbDir:   dbDir,
+		baseDir: rawDb.V1.BaseDir,
+		files:   make(map[string]*FileMeta),
+	}
+
+	for _, file := range rawDb.V1.Files {
+		db.files[file.Name] = file
+	}
+
+	if filepath.IsAbs(db.baseDir) {
+		db.absBaseDir = db.baseDir
 	} else {
-		db.absBaseDir, err = cleanPath(filepath.Join(dbDir, db.BaseDir))
+		db.absBaseDir, err = cleanPath(filepath.Join(dbDir, db.baseDir))
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	info, err := os.Stat(db.absBaseDir)
-	if err != nil {
-		return nil, fmt.Errorf("base directory '%s' does not exist", db.absBaseDir)
-	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("base directory '%s' is not a directory", db.absBaseDir)
-	}
+	// fmt.Printf("loaded %#v\n", db)
 
 	return db, nil
 }
