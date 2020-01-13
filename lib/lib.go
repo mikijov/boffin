@@ -49,13 +49,24 @@ type FileMeta struct {
 type FileDb interface {
 	GetDbDir() string
 	GetBaseDir() string
+	GetImportDir() string
 
 	GetFile(path string) *FileMeta
 
 	Save() error
 	Update() error
 	Import(remote FileDb) error
+	Import2(remote FileDb) error
 }
+
+type cmpResult int
+
+const (
+	cmpEqual cmpResult = iota
+	cmpNewer
+	cmpOlder
+	cmpConflict
+)
 
 //  88888888b oo dP          8888ba.88ba             dP
 //  88           88          88  `8b  `8b            88
@@ -63,6 +74,46 @@ type FileDb interface {
 //  88        88 88 88ooood8 88   88   88 88ooood8   88   88'  `88
 //  88        88 88 88.  ... 88   88   88 88.  ...   88   88.  .88
 //  dP        dP dP `88888P' dP   dP   dP `88888P'   dP   `88888P8
+
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
+
+func (fm *FileMeta) compare(other *FileMeta) cmpResult {
+	if other == nil {
+		return cmpNewer
+	}
+
+	lhash := fm.GetHash()
+	rhash := fm.GetHash()
+
+	if lhash == rhash {
+		return cmpEqual
+	}
+
+	if stringInSlice(rhash, fm.Checksum) && !stringInSlice(lhash, other.Checksum) {
+		return cmpNewer
+	}
+	if stringInSlice(lhash, other.Checksum) && !stringInSlice(rhash, fm.Checksum) {
+		return cmpOlder
+	}
+
+	return cmpConflict
+}
+
+// GetHash ...
+func (fm *FileMeta) GetHash() string {
+	l := len(fm.Checksum)
+	if l == 0 {
+		return ""
+	}
+	return fm.Checksum[l-1]
+}
 
 func (fm *FileMeta) isChecked() bool {
 	return fm.checked
@@ -73,11 +124,7 @@ func (fm *FileMeta) isChanged() bool {
 }
 
 func (fm *FileMeta) isDeleted() bool {
-	l := len(fm.Checksum)
-	if l == 0 {
-		return false
-	}
-	return fm.Checksum[l-1] == deleted
+	return fm.GetHash() == deleted
 }
 
 func (fm *FileMeta) markDeleted() {
@@ -169,6 +216,10 @@ func (db *fileDb) GetDbDir() string {
 // GetBaseDir ...
 func (db *fileDb) GetBaseDir() string {
 	return db.absBaseDir
+}
+
+func (db *fileDb) GetImportDir() string {
+	return filepath.Join(db.GetBaseDir(), "import")
 }
 
 func (db *fileDb) GetFile(path string) *FileMeta {
@@ -295,78 +346,80 @@ func (db *fileDb) Update() error {
 
 // Import ...
 func (db *fileDb) Import(remote FileDb) error {
-	return fmt.Errorf("not implemented")
-	// files := make(map[string]*FileMeta)
-	// for _, file := range db.Files {
-	// 	files[file.Name] = file
-	// }
-	//
-	// dir := db.GetBaseDir()
-	//
-	// err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-	// 	if err != nil {
-	// 		fmt.Printf("%s: error getting file info: %s\n", path, err)
-	// 		return nil
-	// 	}
-	// 	if info.IsDir() {
-	// 		if info.Name() == defaultDbDir {
-	// 			return filepath.SkipDir
-	// 		}
-	// 		return nil
-	// 	}
-	//
-	// 	root := path[:len(dir)]
-	// 	if dir != root {
-	// 		// TODO: just checking if the beginning of the path matches expectation
-	// 		fmt.Printf("Root mismatch '%s' != '%s'\n", dir, root)
-	// 	}
-	//
-	// 	relPath := path[len(dir)+1:]
-	//
-	// 	meta, ok := files[relPath]
-	// 	if !ok {
-	// 		meta = &FileMeta{
-	// 			Name: relPath,
-	// 		}
-	// 		files[relPath] = meta
-	// 	}
-	//
-	// 	err = meta.update(path, info)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	//
-	// 	return nil
-	// })
-	//
-	// if err != nil {
-	// 	return err
-	// }
-	//
-	// fileSlice := make([]*FileMeta, 0, len(files))
-	// changed := false
-	// for _, file := range files {
-	// 	if !file.isChecked() {
-	// 		if !file.isDeleted() {
-	// 			file.markDeleted()
-	// 			changed = true
-	// 		}
-	// 	} else {
-	// 		changed = changed || file.isChanged()
-	// 	}
-	// 	fileSlice = append(fileSlice, file)
-	// }
-	//
-	// if changed {
-	// 	sort.Slice(fileSlice, func(i, j int) bool {
-	// 		return fileSlice[i].Name < fileSlice[j].Name
-	// 	})
-	// 	db.Files = fileSlice
-	//
-	// 	db.changed = changed
-	// }
-	//
-	// return nil
+
+	// - for each file in local DB:
+	for _, file := range db.files {
+		file.markChecked()
+
+		rfile := remote.GetFile(file.Name)
+		if rfile != nil {
+			rfile.markChecked()
+		}
+
+		result := file.compare(rfile)
+
+		if result == cmpNewer {
+			fmt.Printf("newer: %s\n", file.Name)
+		} else if result == cmpOlder {
+			fmt.Printf("older: %s\n", file.Name)
+		} else if result == cmpEqual {
+			fmt.Printf("equal: %s\n", file.Name)
+		} else if result == cmpEqual {
+			fmt.Printf("conflict: %s\n", file.Name)
+		} else {
+			fmt.Printf("???: %s\n", file.Name)
+		}
+	}
+
+	for _, file := range db.files {
+		if !file.isChecked() {
+			fmt.Printf("not checked!: %s\n", file.Name)
+		}
+	}
+
+	for _, file := range remote.(*fileDb).files {
+		if !file.isChecked() {
+			fmt.Printf("new file: %s\n", file.Name)
+		}
+	}
+
+	return nil
+}
+
+// Import2 ...
+func (db *fileDb) Import2(remote FileDb) error {
+	remote2, ok := remote.(*fileDb)
+	if !ok {
+		return fmt.Errorf("remote parameter has to be fileDb")
+	}
+
+	hashes := make(map[string]bool)
+	for _, file := range db.files {
+		for _, hash := range file.Checksum {
+			if hash != deleted {
+				hashes[hash] = true
+			}
+		}
+	}
+
+	for _, file := range remote2.files {
+		if !file.isDeleted() {
+			if _, seen := hashes[file.GetHash()]; !seen {
+				src := filepath.Join(remote.GetBaseDir(), file.Name)
+				dest := filepath.Join(db.GetImportDir(), file.Name)
+				if err := copyFile(src, dest); err != nil {
+					return err
+				}
+
+				hashes[file.GetHash()] = true
+
+				// TODO: is a reference OK or should we make a copy
+				db.files[file.Name] = file
+			}
+		}
+	}
+
+	return nil
 }
 
 func cleanPath(dir string) (string, error) {
@@ -430,6 +483,13 @@ func InitDbDir(dbDir, baseDir string) (FileDb, error) {
 
 // FindDbDir ...
 func FindDbDir(dir string) (string, error) {
+	if dir == "" {
+		var err error
+		if dir, err = os.Getwd(); err != nil {
+			return "", err
+		}
+	}
+
 	dir, err := cleanPath(dir)
 	if err != nil {
 		return "", err
@@ -452,7 +512,7 @@ func FindDbDir(dir string) (string, error) {
 
 // LoadFileDb ...
 func LoadFileDb(dbDir string) (FileDb, error) {
-	dbDir, err := cleanPath(dbDir)
+	dbDir, err := FindDbDir(dbDir)
 	if err != nil {
 		return nil, err
 	}
@@ -504,4 +564,46 @@ func LoadFileDb(dbDir string) (FileDb, error) {
 	// fmt.Printf("loaded %#v\n", db)
 
 	return db, nil
+}
+
+// Copy the src file to dst. Any existing file will be overwritten and will not
+// copy file attributes.
+func copyFile(src, dst string) error {
+	fmt.Printf("%s => %s\n", src, dst)
+	return nil
+
+	// stat, err := os.Stat(src)
+	// if err != nil {
+	// 	return err
+	// }
+	//
+	// in, err := os.Open(src)
+	// if err != nil {
+	// 	return err
+	// }
+	// defer in.Close()
+	//
+	// out, err := os.OpenFile(dst, os.O_CREAT|os.O_EXCL|os.O_WRONLY, 0600)
+	// if err != nil {
+	// 	return err
+	// }
+	// defer out.Close()
+	//
+	// _, err = io.Copy(out, in)
+	// if err != nil {
+	// 	return err
+	// }
+	// err = out.Chmod(stat.Mode())
+	// if err != nil {
+	// 	return err
+	// }
+	// err = out.Close()
+	// if err != nil {
+	// 	return err
+	// }
+	// err = os.Chtimes(dst, stat.ModTime(), stat.ModTime())
+	// if err != nil {
+	// 	return err
+	// }
+	// return nil
 }

@@ -31,22 +31,7 @@ var updateCmd = &cobra.Command{
 	Long:  `update directory for changes.`,
 	// Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		dbDir := ""
-		if dbDirFlag != "" {
-			dbDir = dbDirFlag
-		} else {
-			wd, err := os.Getwd()
-			if err != nil {
-				fmt.Printf("ERROR: %v\n", err)
-				os.Exit(1)
-			}
-			dbDir, err = lib.FindDbDir(wd)
-			if err != nil {
-				fmt.Printf("ERROR: %v\n", err)
-				os.Exit(1)
-			}
-		}
-		db, err := lib.LoadFileDb(dbDir)
+		db, err := lib.LoadFileDb(dbDirFlag)
 		if err != nil {
 			fmt.Printf("ERROR: %v\n", err)
 			os.Exit(1)

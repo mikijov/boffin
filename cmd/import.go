@@ -14,10 +14,15 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+// Package cmd ...
 package cmd
 
 import (
-	// "github.com/mikijov/aether/lib"
+	"fmt"
+	"os"
+
+	"github.com/mikijov/aether/lib"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +33,31 @@ var importCmd = &cobra.Command{
 	Long:  `import directory for changes.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		// lib.import(args[0])
+		db, err := lib.LoadFileDb(dbDirFlag)
+		if err != nil {
+			fmt.Printf("ERROR: %v\n", err)
+			os.Exit(1)
+		}
+
+		otherDb, err := lib.LoadFileDb(args[0])
+		if err != nil {
+			fmt.Printf("ERROR: %v\n", err)
+			os.Exit(1)
+		}
+
+		if db.GetBaseDir() == otherDb.GetBaseDir() {
+			fmt.Printf("ERROR: source and destination directories are the same\n")
+			os.Exit(1)
+		}
+
+		if err = db.Import2(otherDb); err != nil {
+			fmt.Printf("ERROR: %v\n", err)
+			os.Exit(1)
+		}
+		if err = db.Save(); err != nil {
+			fmt.Printf("ERROR: %v\n", err)
+			os.Exit(1)
+		}
 	},
 }
 
