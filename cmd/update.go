@@ -31,16 +31,22 @@ var updateCmd = &cobra.Command{
 	Long:  `update directory for changes.`,
 	// Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		db, err := lib.LoadFileDb(dbDirFlag)
+		dbDir, err := lib.FindAetherDir(dbDirFlag)
 		if err != nil {
 			fmt.Printf("ERROR: %v\n", err)
 			os.Exit(1)
 		}
-		if err = db.Update(); err != nil {
+
+		aether, err := lib.LoadAether(dbDir)
+		if err != nil {
 			fmt.Printf("ERROR: %v\n", err)
 			os.Exit(1)
 		}
-		if err = db.Save(); err != nil {
+		if err = aether.Update(); err != nil {
+			fmt.Printf("ERROR: %v\n", err)
+			os.Exit(1)
+		}
+		if err = aether.Save(); err != nil {
 			fmt.Printf("ERROR: %v\n", err)
 			os.Exit(1)
 		}

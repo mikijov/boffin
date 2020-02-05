@@ -31,13 +31,16 @@ var initCmd = &cobra.Command{
 	Long:  `Create new Aether repository.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		baseDir := args[0]
+
 		dbDir := ""
 		if dbDirFlag != "" {
 			dbDir = dbDirFlag
 		} else {
-			dbDir = lib.ConstuctDbDirPath(args[0])
+			dbDir = lib.ConstuctDbPath(baseDir)
 		}
-		_, err := lib.InitDbDir(dbDir, args[0])
+
+		_, err := lib.InitDbDir(dbDir, baseDir)
 		if err != nil {
 			fmt.Printf("ERROR: %v\n", err)
 			os.Exit(1)
