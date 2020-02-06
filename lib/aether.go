@@ -544,8 +544,6 @@ func LoadAether(dbDir string) (Aether, error) {
 		return nil, err
 	}
 
-	// fmt.Printf("loaded %#v\n", db)
-
 	return db, nil
 }
 
