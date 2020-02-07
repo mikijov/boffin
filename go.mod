@@ -1,4 +1,4 @@
-module github.com/mikijov/aether
+module github.com/mikijov/boffin
 
 go 1.13
 

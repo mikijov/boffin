@@ -25,23 +25,23 @@ func parseTime(s string) time.Time {
 	return retVal
 }
 
-func TestFindAether(t *testing.T) {
+func TestFindBoffin(t *testing.T) {
 	testRoot := getTestDir()
 
 	dir := testRoot
-	actual, err := FindAetherDir(dir)
+	actual, err := FindBoffinDir(dir)
 	if actual != "" {
 		t.Errorf("expecting '' but got '%s'", dir)
 	}
 	if err == nil {
 		t.Error("expected error but got none")
-	} else if err.Error() != "could not find .aether dir" {
-		t.Errorf("expecting 'could not find .aether dir' but got '%s'", err.Error())
+	} else if err.Error() != "could not find .boffin dir" {
+		t.Errorf("expecting 'could not find .boffin dir' but got '%s'", err.Error())
 	}
 
-	dir = filepath.Join(testRoot, "find-aether")
-	expected := filepath.Join(testRoot, "find-aether", ".aether")
-	actual, err = FindAetherDir(dir)
+	dir = filepath.Join(testRoot, "find-boffin")
+	expected := filepath.Join(testRoot, "find-boffin", ".boffin")
+	actual, err = FindBoffinDir(dir)
 	if actual != expected {
 		t.Errorf("expecting '%s' but got '%s'", expected, actual)
 	}
@@ -49,9 +49,9 @@ func TestFindAether(t *testing.T) {
 		t.Errorf("did not expect error but got '%s'", err.Error())
 	}
 
-	dir = filepath.Join(testRoot, "find-aether", "sub1")
-	expected = filepath.Join(testRoot, "find-aether", ".aether")
-	actual, err = FindAetherDir(dir)
+	dir = filepath.Join(testRoot, "find-boffin", "sub0")
+	expected = filepath.Join(testRoot, "find-boffin", ".boffin")
+	actual, err = FindBoffinDir(dir)
 	if actual != expected {
 		t.Errorf("expecting '%s' but got '%s'", expected, actual)
 	}
@@ -59,9 +59,9 @@ func TestFindAether(t *testing.T) {
 		t.Errorf("did not expect error but got '%s'", err.Error())
 	}
 
-	dir = filepath.Join(testRoot, "find-aether", "sub1", "sub2")
-	expected = filepath.Join(testRoot, "find-aether", ".aether")
-	actual, err = FindAetherDir(dir)
+	dir = filepath.Join(testRoot, "find-boffin", "sub0", "sub2")
+	expected = filepath.Join(testRoot, "find-boffin", ".boffin")
+	actual, err = FindBoffinDir(dir)
 	if actual != expected {
 		t.Errorf("expecting '%s' but got '%s'", expected, actual)
 	}
@@ -70,15 +70,15 @@ func TestFindAether(t *testing.T) {
 	}
 }
 
-func TestLoadAether(t *testing.T) {
-	dir := filepath.Join(getTestDir(), "load-aether", ".aether")
+func TestLoadBoffin(t *testing.T) {
+	dir := filepath.Join(getTestDir(), "load-boffin", ".boffin")
 
-	aether, err := LoadAether(dir)
+	boffin, err := LoadBoffin(dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	files := aether.GetFiles()
+	files := boffin.GetFiles()
 	if len(files) != 1 {
 		t.Errorf("GetFiles: 1 != %d", len(files))
 	} else {
@@ -128,29 +128,29 @@ func TestLoadAether(t *testing.T) {
 	}
 
 	expected := dir
-	if aether.GetDbDir() != expected {
-		t.Errorf("GetDbDir: '%s' != '%s'", expected, aether.GetDbDir())
+	if boffin.GetDbDir() != expected {
+		t.Errorf("GetDbDir: '%s' != '%s'", expected, boffin.GetDbDir())
 	}
 
 	expected = filepath.Dir(dir)
-	if aether.GetBaseDir() != expected {
-		t.Errorf("GetBaseDir: '%s' != '%s'", expected, aether.GetBaseDir())
+	if boffin.GetBaseDir() != expected {
+		t.Errorf("GetBaseDir: '%s' != '%s'", expected, boffin.GetBaseDir())
 	}
 
 	expected = filepath.Join(filepath.Dir(dir), "import")
-	if aether.GetImportDir() != expected {
-		t.Errorf("GetImportDir: '%s' != '%s'", expected, aether.GetImportDir())
+	if boffin.GetImportDir() != expected {
+		t.Errorf("GetImportDir: '%s' != '%s'", expected, boffin.GetImportDir())
 	}
 }
 
 func TestUpdate(t *testing.T) {
-	dir := filepath.Join(getTestDir(), "update", ".aether")
+	dir := filepath.Join(getTestDir(), "update", ".boffin")
 
-	aether, err := LoadAether(dir)
+	boffin, err := LoadBoffin(dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	err = aether.Update()
+	err = boffin.Update()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -226,7 +226,7 @@ func TestUpdate(t *testing.T) {
 			},
 		},
 	}
-	actual := aether.GetFiles()
+	actual := boffin.GetFiles()
 
 	margin, _ := time.ParseDuration("2s")
 	opt1 := cmpopts.EquateApproxTime(margin)

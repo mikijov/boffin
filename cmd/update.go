@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mikijov/aether/lib"
+	"github.com/mikijov/boffin/lib"
 	"github.com/spf13/cobra"
 )
 
@@ -31,22 +31,22 @@ var updateCmd = &cobra.Command{
 	Long:  `update directory for changes.`,
 	// Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		dbDir, err := lib.FindAetherDir(dbDirFlag)
+		dbDir, err := lib.FindBoffinDir(dbDirFlag)
 		if err != nil {
 			fmt.Printf("ERROR: %v\n", err)
 			os.Exit(1)
 		}
 
-		aether, err := lib.LoadAether(dbDir)
+		boffin, err := lib.LoadBoffin(dbDir)
 		if err != nil {
 			fmt.Printf("ERROR: %v\n", err)
 			os.Exit(1)
 		}
-		if err = aether.Update(); err != nil {
+		if err = boffin.Update(); err != nil {
 			fmt.Printf("ERROR: %v\n", err)
 			os.Exit(1)
 		}
-		if err = aether.Save(); err != nil {
+		if err = boffin.Save(); err != nil {
 			fmt.Printf("ERROR: %v\n", err)
 			os.Exit(1)
 		}

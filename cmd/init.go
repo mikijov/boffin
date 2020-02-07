@@ -20,15 +20,15 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mikijov/aether/lib"
+	"github.com/mikijov/boffin/lib"
 	"github.com/spf13/cobra"
 )
 
 // initCmd represents the init command
 var initCmd = &cobra.Command{
 	Use:   "init <base-dir>",
-	Short: "Create new Aether repository.",
-	Long:  `Create new Aether repository.`,
+	Short: "Create new Boffin repository.",
+	Long:  `Create new Boffin repository.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		baseDir := args[0]

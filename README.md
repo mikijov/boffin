@@ -1,11 +1,11 @@
-# Aether
+# Boffin
 
 ##
 
-aether init - initialize new repo
-aether update - update repository with local changes
+boffin init - initialize new repo
+boffin update - update repository with local changes
 --force - check actual content of the files even if size/date are unchanged
-aether diff - display differences between two repositories
+boffin diff - display differences between two repositories
 - result
   - left
     - path
@@ -17,7 +17,7 @@ aether diff - display differences between two repositories
     - moved
     - changed
     - deleted
-aether import - import new and changed files from the remote repo
+boffin import - import new and changed files from the remote repo
 --stage - import files into a staging directory rather in-place
 --delete - delete local files that have been deleted remotely
 

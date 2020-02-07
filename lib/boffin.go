@@ -28,7 +28,7 @@ import (
 	"time"
 )
 
-const defaultDbDir = ".aether"
+const defaultDbDir = ".boffin"
 const filesFilename = "files.json"
 const newFilesFilename = "files.json.tmp"
 
@@ -53,8 +53,8 @@ type FileInfo struct {
 	checked bool
 }
 
-// Aether ...
-type Aether interface {
+// Boffin ...
+type Boffin interface {
 	GetFiles() []*FileInfo
 
 	GetDbDir() string
@@ -296,7 +296,7 @@ type v1Struct struct {
 }
 
 // InitDbDir ...
-func InitDbDir(dbDir, baseDir string) (Aether, error) {
+func InitDbDir(dbDir, baseDir string) (Boffin, error) {
 	baseDir, err := cleanPath(baseDir)
 	if err != nil {
 		return nil, err
@@ -383,17 +383,17 @@ func (db *db) Save() error {
 	return nil
 }
 
-// LoadAether ...
-func LoadAether(dbDir string) (Aether, error) {
-	aetherPath := filepath.Join(dbDir, filesFilename)
+// LoadBoffin ...
+func LoadBoffin(dbDir string) (Boffin, error) {
+	boffinPath := filepath.Join(dbDir, filesFilename)
 
-	aetherFile, err := os.Open(aetherPath)
+	boffinFile, err := os.Open(boffinPath)
 	if err != nil {
 		return nil, err
 	}
-	defer aetherFile.Close()
+	defer boffinFile.Close()
 
-	decoder := json.NewDecoder(aetherFile)
+	decoder := json.NewDecoder(boffinFile)
 
 	rawJSON := &jsonStruct{}
 	if err := decoder.Decode(&rawJSON); err != nil {
@@ -433,8 +433,8 @@ func ConstuctDbPath(baseDir string) string {
 	return filepath.Join(baseDir, defaultDbDir)
 }
 
-// FindAetherDir ...
-func FindAetherDir(dir string) (string, error) {
+// FindBoffinDir ...
+func FindBoffinDir(dir string) (string, error) {
 	// if dir is empty, start in current directory
 	if dir == "" {
 		var err error

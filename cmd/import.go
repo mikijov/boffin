@@ -22,7 +22,7 @@ package cmd
 // 	"fmt"
 // 	"os"
 //
-// 	"github.com/mikijov/aether/lib"
+// 	"github.com/mikijov/boffin/lib"
 // 	"github.com/spf13/cobra"
 // )
 

@@ -30,7 +30,7 @@ var dbDirFlag string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "aether",
+	Use:   "boffin",
 	Short: "A brief description of your application",
 	Long: `A longer description that spans multiple lines and likely contains
 examples and usage of using your application. For example:
@@ -59,8 +59,8 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.aether.yaml)")
-	rootCmd.PersistentFlags().StringVar(&dbDirFlag, "db-dir", "", "db directory if out of BASE (default is BASE_DIR/.aether)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.boffin.yaml)")
+	rootCmd.PersistentFlags().StringVar(&dbDirFlag, "db-dir", "", "db directory if out of BASE (default is BASE_DIR/.boffin)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -80,9 +80,9 @@ func initConfig() {
 			os.Exit(1)
 		}
 
-		// Search config in home directory with name ".aether" (without extension).
+		// Search config in home directory with name ".boffin" (without extension).
 		viper.AddConfigPath(home)
-		viper.SetConfigName(".aether")
+		viper.SetConfigName(".boffin")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
