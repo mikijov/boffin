@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func getTestDir() string {
@@ -139,5 +140,99 @@ func TestLoadAether(t *testing.T) {
 	expected = filepath.Join(filepath.Dir(dir), "import")
 	if aether.GetImportDir() != expected {
 		t.Errorf("GetImportDir: '%s' != '%s'", expected, aether.GetImportDir())
+	}
+}
+
+func TestUpdate(t *testing.T) {
+	dir := filepath.Join(getTestDir(), "update", ".aether")
+
+	aether, err := LoadAether(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = aether.Update()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := []*FileInfo{
+		{
+			Path:     "file1.ext",
+			Size:     10,
+			Time:     parseTime("2020-02-06T13:56:51.571756332Z"),
+			Checksum: "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrI=",
+			History: []*FileEvent{
+				&FileEvent{
+					Type:     "changed",
+					Time:     parseTime("2020-02-06T13:56:51.571756332Z"),
+					Checksum: "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrI=",
+				},
+			},
+		},
+		{
+			Path:     "sub1/file2.ext",
+			Size:     10,
+			Time:     parseTime("2020-02-06T13:57:02.90203166Z"),
+			Checksum: "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
+			History: []*FileEvent{
+				&FileEvent{
+					Type:     "changed",
+					Time:     parseTime("2020-02-06T13:57:02.90203166Z"),
+					Checksum: "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
+				},
+			},
+		},
+		{
+			Path:     "sub1/file3.ext",
+			Size:     10,
+			Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
+			Checksum: "4PFd3bElTqFi8wvTlY2eRK6sJo65UivdK95nd7it5h4=",
+			History: []*FileEvent{
+				&FileEvent{
+					Type:     "changed",
+					Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
+					Checksum: "4PFd3bElTqFi8wvTlY2eRK6sJo65UivdK95nd7it5h4=",
+				},
+			},
+		},
+		{
+			Path:     "sub1/file4.ext",
+			Size:     0,
+			Time:     time.Now(),
+			Checksum: "",
+			History: []*FileEvent{
+				&FileEvent{
+					Type:     "changed",
+					Time:     parseTime("2020-02-06T13:59:21.099018324Z"),
+					Checksum: "71JuQzM1k9ZV2tMnnhemjf+FUfbEEs8YS170IORPpA4=",
+				},
+				&FileEvent{
+					Type: "deleted",
+					Time: time.Now(),
+				},
+			},
+		},
+		{
+			Path:     "sub1/file5.ext",
+			Size:     10,
+			Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+			Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+			History: []*FileEvent{
+				&FileEvent{
+					Type:     "changed",
+					Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+					Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+				},
+			},
+		},
+	}
+	actual := aether.GetFiles()
+
+	margin, _ := time.ParseDuration("2s")
+	opt1 := cmpopts.EquateApproxTime(margin)
+	opt2 := cmpopts.IgnoreUnexported(FileInfo{})
+
+	if diff := cmp.Diff(expected, actual, opt1, opt2); diff != "" {
+		t.Errorf("file.History:\n%s", diff)
 	}
 }
