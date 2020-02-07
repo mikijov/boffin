@@ -65,37 +65,6 @@ type Aether interface {
 	Update() error
 }
 
-// func stringInSlice(a string, list []string) bool {
-// 	for _, b := range list {
-// 		if b == a {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }
-
-// func (fm *FileInfo) compare(other *FileInfo) cmpResult {
-// 	if other == nil {
-// 		return cmpNewer
-// 	}
-//
-// 	lhash := fm.GetHash()
-// 	rhash := fm.GetHash()
-//
-// 	if lhash == rhash {
-// 		return cmpEqual
-// 	}
-//
-// 	if stringInSlice(rhash, fm.Checksum) && !stringInSlice(lhash, other.Checksum) {
-// 		return cmpNewer
-// 	}
-// 	if stringInSlice(lhash, other.Checksum) && !stringInSlice(rhash, fm.Checksum) {
-// 		return cmpOlder
-// 	}
-//
-// 	return cmpConflict
-// }
-
 func (fi *FileInfo) isDeleted() bool {
 	return fi.Checksum == ""
 }
@@ -261,84 +230,6 @@ func (db *db) Update() error {
 	return nil
 }
 
-// // Import ...
-// func (db *fileDb) Import(remote FileDb) error {
-//
-// 	// - for each file in local DB:
-// 	for _, file := range db.files {
-// 		file.markChecked()
-//
-// 		rfile := remote.GetFile(file.Name)
-// 		if rfile != nil {
-// 			rfile.markChecked()
-// 		}
-//
-// 		result := file.compare(rfile)
-//
-// 		if result == cmpNewer {
-// 			fmt.Printf("newer: %s\n", file.Name)
-// 		} else if result == cmpOlder {
-// 			fmt.Printf("older: %s\n", file.Name)
-// 		} else if result == cmpEqual {
-// 			fmt.Printf("equal: %s\n", file.Name)
-// 		} else if result == cmpEqual {
-// 			fmt.Printf("conflict: %s\n", file.Name)
-// 		} else {
-// 			fmt.Printf("???: %s\n", file.Name)
-// 		}
-// 	}
-//
-// 	for _, file := range db.files {
-// 		if !file.isChecked() {
-// 			fmt.Printf("not checked!: %s\n", file.Name)
-// 		}
-// 	}
-//
-// 	for _, file := range remote.(*fileDb).files {
-// 		if !file.isChecked() {
-// 			fmt.Printf("new file: %s\n", file.Name)
-// 		}
-// 	}
-//
-// 	return nil
-// }
-
-// // Import2 ...
-// func (db *fileDb) Import2(remote FileDb) error {
-// 	remote2, ok := remote.(*fileDb)
-// 	if !ok {
-// 		return fmt.Errorf("remote parameter has to be fileDb")
-// 	}
-//
-// 	hashes := make(map[string]bool)
-// 	for _, file := range db.files {
-// 		for _, hash := range file.Checksum {
-// 			if hash != deleted {
-// 				hashes[hash] = true
-// 			}
-// 		}
-// 	}
-//
-// 	for _, file := range remote2.files {
-// 		if !file.isDeleted() {
-// 			if _, seen := hashes[file.GetHash()]; !seen {
-// 				src := filepath.Join(remote.GetBaseDir(), file.Name)
-// 				dest := filepath.Join(db.GetImportDir(), file.Name)
-// 				if err := copyFile(src, dest); err != nil {
-// 					return err
-// 				}
-//
-// 				hashes[file.GetHash()] = true
-//
-// 				// TODO: is a reference OK or should we make a copy
-// 				db.files[file.Name] = file
-// 			}
-// 		}
-// 	}
-//
-// 	return nil
-// }
-
 func cleanPath(dir string) (string, error) {
 	dir, err := filepath.Abs(dir)
 	if err != nil {
@@ -452,15 +343,6 @@ func InitDbDir(dbDir, baseDir string) (Aether, error) {
 
 // Save ...
 func (db *db) Save() error {
-	// // prepare simplified json structure
-	// fileSlice := make([]*FileInfo, 0, len(db.files))
-	// for _, file := range db.files {
-	// 	fileSlice = append(fileSlice, file)
-	// }
-	// sort.Slice(fileSlice, func(i, j int) bool {
-	// 	return fileSlice[i].Name < fileSlice[j].Name
-	// })
-
 	rawJSON := &jsonStruct{
 		V1: &v1Struct{
 			BaseDir: db.baseDir,
