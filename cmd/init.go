@@ -28,8 +28,9 @@ import (
 var initCmd = &cobra.Command{
 	Use:   "init <base-dir>",
 	Short: "Create new Boffin repository.",
-	Long:  `Create new Boffin repository.`,
-	Args:  cobra.ExactArgs(1),
+	Long: `Create new and empty Boffin repository. Unless there are no files in
+	the directory, it should be almost always followed by 'update'.`,
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		baseDir := args[0]
 

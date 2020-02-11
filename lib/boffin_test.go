@@ -236,3 +236,471 @@ func TestUpdate(t *testing.T) {
 		t.Errorf("file.History:\n%s", diff)
 	}
 }
+
+func TestDiff(t *testing.T) {
+	var left Boffin = &db{
+		files: []*FileInfo{
+			{
+				Path:     "equal.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-06T13:56:51.571756332Z"),
+				Checksum: "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrI=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-05T13:56:51.571756332Z"),
+						Checksum: "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrJ=",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-06T13:56:51.571756332Z"),
+						Checksum: "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrI=",
+					},
+				},
+			},
+			{
+				Path:     "sub1/left.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-06T13:57:02.90203166Z"),
+				Checksum: "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-06T13:57:02.90203166Z"),
+						Checksum: "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
+					},
+				},
+			},
+			{
+				Path:     "sub1/left-deleted.ext",
+				Size:     0,
+				Time:     parseTime("2020-02-08T13:57:12.378926011Z"),
+				Checksum: "",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
+						Checksum: "4PFd3bElTqFi8wvTlY2eRK6sJo65UivdK95nd7it5h4=",
+					},
+					&FileEvent{
+						Type: "deleted",
+						Time: parseTime("2020-02-08T13:57:12.378926011Z"),
+					},
+				},
+			},
+			{
+				Path:     "sub1/right-deleted.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-06T13:59:21.099018324Z"),
+				Checksum: "71JuQzM1k9ZV2tMnnhemjf+FUfbEEs8YS170IORPpA4=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-06T13:59:21.099018324Z"),
+						Checksum: "71JuQzM1k9ZV2tMnnhemjf+FUfbEEs8YS170IORPpA4=",
+					},
+				},
+			},
+			{
+				Path:     "sub1/conflict.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+				Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+						Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+					},
+				},
+			},
+			{
+				Path:     "sub1/left-changed.ext",
+				Size:     11,
+				Time:     parseTime("2020-02-09T21:01:11.11974727Z"),
+				Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYaD=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+						Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-09T21:01:11.11974727Z"),
+						Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYaD=",
+					},
+				},
+			},
+			{
+				Path:     "sub1/right-changed.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+				Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+						Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+					},
+				},
+			},
+		},
+	}
+	var right Boffin = &db{
+		files: []*FileInfo{
+			{
+				Path:     "equal.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-06T13:56:51.571756332Z"),
+				Checksum: "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrI=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-04T13:56:51.571756332Z"),
+						Checksum: "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrK=",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-06T13:56:51.571756332Z"),
+						Checksum: "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrI=",
+					},
+				},
+			},
+			{
+				Path:     "sub1/right.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-06T13:57:02.90203166Z"),
+				Checksum: "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-06T13:57:02.90203166Z"),
+						Checksum: "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
+					},
+				},
+			},
+			{
+				Path:     "sub1/left-deleted.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
+				Checksum: "4PFd3bElTqFi8wvTlY2eRK6sJo65UivdK95nd7it5h4=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
+						Checksum: "4PFd3bElTqFi8wvTlY2eRK6sJo65UivdK95nd7it5h4=",
+					},
+				},
+			},
+			{
+				Path:     "sub1/right-deleted.ext",
+				Size:     0,
+				Time:     parseTime("2020-02-09T13:59:21.099018324Z"),
+				Checksum: "",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-06T13:59:21.099018324Z"),
+						Checksum: "71JuQzM1k9ZV2tMnnhemjf+FUfbEEs8YS170IORPpA4=",
+					},
+					&FileEvent{
+						Type: "deleted",
+						Time: parseTime("2020-02-09T13:59:21.099018324Z"),
+					},
+				},
+			},
+			{
+				Path:     "sub1/conflict.ext",
+				Size:     20,
+				Time:     parseTime("2020-02-08T21:01:11.11974727Z"),
+				Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-08T21:01:11.11974727Z"),
+						Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+					},
+				},
+			},
+			{
+				Path:     "sub1/left-changed.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+				Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+						Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+					},
+				},
+			},
+			{
+				Path:     "sub1/right-changed.ext",
+				Size:     11,
+				Time:     parseTime("2020-02-08T21:01:11.11974727Z"),
+				Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYaD=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+						Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-08T21:01:11.11974727Z"),
+						Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYaD=",
+					},
+				},
+			},
+		},
+	}
+
+	expected := []DiffResult{
+		{
+			Result: DiffEqual,
+			Left: &FileInfo{
+				Path:     "equal.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-06T13:56:51.571756332Z"),
+				Checksum: "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrI=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-05T13:56:51.571756332Z"),
+						Checksum: "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrJ=",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-06T13:56:51.571756332Z"),
+						Checksum: "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrI=",
+					},
+				},
+			},
+			Right: &FileInfo{
+				Path:     "equal.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-06T13:56:51.571756332Z"),
+				Checksum: "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrI=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-04T13:56:51.571756332Z"),
+						Checksum: "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrK=",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-06T13:56:51.571756332Z"),
+						Checksum: "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrI=",
+					},
+				},
+			},
+		},
+		{
+			Result: DiffConflict,
+			Left: &FileInfo{
+				Path:     "sub1/conflict.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+				Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+						Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+					},
+				},
+			},
+			Right: &FileInfo{
+				Path:     "sub1/conflict.ext",
+				Size:     20,
+				Time:     parseTime("2020-02-08T21:01:11.11974727Z"),
+				Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-08T21:01:11.11974727Z"),
+						Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+					},
+				},
+			},
+		},
+		{
+			Result: DiffLeftChanged,
+			Left: &FileInfo{
+				Path:     "sub1/left-changed.ext",
+				Size:     11,
+				Time:     parseTime("2020-02-09T21:01:11.11974727Z"),
+				Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYaD=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+						Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-09T21:01:11.11974727Z"),
+						Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYaD=",
+					},
+				},
+			},
+			Right: &FileInfo{
+				Path:     "sub1/left-changed.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+				Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+						Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+					},
+				},
+			},
+		},
+		{
+			Result: DiffLeftDeleted,
+			Left: &FileInfo{
+				Path:     "sub1/left-deleted.ext",
+				Size:     0,
+				Time:     parseTime("2020-02-08T13:57:12.378926011Z"),
+				Checksum: "",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
+						Checksum: "4PFd3bElTqFi8wvTlY2eRK6sJo65UivdK95nd7it5h4=",
+					},
+					&FileEvent{
+						Type: "deleted",
+						Time: parseTime("2020-02-08T13:57:12.378926011Z"),
+					},
+				},
+			},
+			Right: &FileInfo{
+				Path:     "sub1/left-deleted.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
+				Checksum: "4PFd3bElTqFi8wvTlY2eRK6sJo65UivdK95nd7it5h4=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
+						Checksum: "4PFd3bElTqFi8wvTlY2eRK6sJo65UivdK95nd7it5h4=",
+					},
+				},
+			},
+		},
+		{
+			Result: DiffLeftAdded,
+			Left: &FileInfo{
+				Path:     "sub1/left.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-06T13:57:02.90203166Z"),
+				Checksum: "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-06T13:57:02.90203166Z"),
+						Checksum: "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
+					},
+				},
+			},
+		},
+		{
+			Result: DiffRightChanged,
+			Left: &FileInfo{
+				Path:     "sub1/right-changed.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+				Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+						Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+					},
+				},
+			},
+			Right: &FileInfo{
+				Path:     "sub1/right-changed.ext",
+				Size:     11,
+				Time:     parseTime("2020-02-08T21:01:11.11974727Z"),
+				Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYaD=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+						Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-08T21:01:11.11974727Z"),
+						Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYaD=",
+					},
+				},
+			},
+		},
+		{
+			Result: DiffRightDeleted,
+			Left: &FileInfo{
+				Path:     "sub1/right-deleted.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-06T13:59:21.099018324Z"),
+				Checksum: "71JuQzM1k9ZV2tMnnhemjf+FUfbEEs8YS170IORPpA4=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-06T13:59:21.099018324Z"),
+						Checksum: "71JuQzM1k9ZV2tMnnhemjf+FUfbEEs8YS170IORPpA4=",
+					},
+				},
+			},
+			Right: &FileInfo{
+				Path:     "sub1/right-deleted.ext",
+				Size:     0,
+				Time:     parseTime("2020-02-09T13:59:21.099018324Z"),
+				Checksum: "",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-06T13:59:21.099018324Z"),
+						Checksum: "71JuQzM1k9ZV2tMnnhemjf+FUfbEEs8YS170IORPpA4=",
+					},
+					&FileEvent{
+						Type: "deleted",
+						Time: parseTime("2020-02-09T13:59:21.099018324Z"),
+					},
+				},
+			},
+		},
+		{
+			Result: DiffRightAdded,
+			Right: &FileInfo{
+				Path:     "sub1/right.ext",
+				Size:     10,
+				Time:     parseTime("2020-02-06T13:57:02.90203166Z"),
+				Checksum: "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-02-06T13:57:02.90203166Z"),
+						Checksum: "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
+					},
+				},
+			},
+		},
+	}
+
+	actual := left.Diff(right)
+
+	margin, _ := time.ParseDuration("2s")
+	opt1 := cmpopts.EquateApproxTime(margin)
+	opt2 := cmpopts.IgnoreUnexported(FileInfo{})
+
+	if diff := cmp.Diff(expected, actual, opt1, opt2); diff != "" {
+		t.Errorf("Diff:\n%s", diff)
+	}
+}

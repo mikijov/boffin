@@ -25,6 +25,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 )
 
@@ -63,10 +64,20 @@ type Boffin interface {
 
 	Save() error
 	Update() error
+	Diff(other Boffin) []DiffResult
 }
 
 func (fi *FileInfo) isDeleted() bool {
 	return fi.Checksum == ""
+}
+
+func (fi *FileInfo) inheritsFrom(checksum string) bool {
+	for _, event := range fi.History {
+		if event.Checksum == checksum {
+			return true
+		}
+	}
+	return false
 }
 
 func (fi *FileInfo) markDeleted() {
@@ -228,6 +239,109 @@ func (db *db) Update() error {
 	}
 
 	return nil
+}
+
+const (
+	// DiffEqual indicates that files in both repositories are identical.
+	DiffEqual = iota
+	// DiffLeftAdded indicates that file exists only in the left repository.
+	DiffLeftAdded
+	// DiffRightAdded indicates that file exists only in the right repository.
+	DiffRightAdded
+	// DiffLeftChanged indicates that file has been changed in the left repository.
+	DiffLeftChanged
+	// DiffRightChanged indicates that file has been changed in the right repository.
+	DiffRightChanged
+	// DiffLeftDeleted indicates that file has been deleted in the left repository.
+	DiffLeftDeleted
+	// DiffRightDeleted indicates that file has been deleted in the right repository.
+	DiffRightDeleted
+	// DiffConflict indicates that file has changed in both repositories.
+	DiffConflict
+)
+
+// DiffResult ...
+type DiffResult struct {
+	Result int
+	Left   *FileInfo
+	Right  *FileInfo
+}
+
+// Diff ...
+func (db *db) Diff(other Boffin) []DiffResult {
+	otherFiles := other.GetFiles()
+
+	// sort both file lists so that we can perform merge
+	sort.Slice(db.files, func(i, j int) bool {
+		return db.files[i].Path < db.files[j].Path
+	})
+	sort.Slice(otherFiles, func(i, j int) bool {
+		return otherFiles[i].Path < otherFiles[j].Path
+	})
+
+	// allocate for the worst case
+	results := make([]DiffResult, 0, len(db.files)+len(otherFiles))
+
+	// calculate results by merging two lists
+	i := 0
+	j := 0
+	for i < len(db.files) || j < len(otherFiles) {
+		var left *FileInfo
+		if i < len(db.files) {
+			left = db.files[i]
+		}
+
+		var right *FileInfo
+		if j < len(otherFiles) {
+			right = otherFiles[j]
+		}
+
+		if right == nil || (left != nil && left.Path < right.Path) {
+			results = append(results, DiffResult{
+				Result: DiffLeftAdded,
+				Left:   left,
+			})
+			i = i + 1
+		} else if left == nil || (right == nil && left.Path > right.Path) {
+			results = append(results, DiffResult{
+				Result: DiffRightAdded,
+				Right:  right,
+			})
+			j = j + 1
+		} else {
+			result := DiffResult{
+				Left:  left,
+				Right: right,
+			}
+			i = i + 1
+			j = j + 1
+
+			if left.Checksum == right.Checksum {
+				result.Result = DiffEqual
+			} else if left.isDeleted() {
+				result.Result = DiffLeftDeleted
+			} else if right.isDeleted() {
+				result.Result = DiffRightDeleted
+			} else {
+				rightNewer := right.inheritsFrom(left.Checksum)
+				leftNewer := left.inheritsFrom(right.Checksum)
+
+				if rightNewer && leftNewer {
+					result.Result = DiffConflict
+				} else if rightNewer {
+					result.Result = DiffRightChanged
+				} else if leftNewer {
+					result.Result = DiffLeftChanged
+				} else {
+					result.Result = DiffConflict
+				}
+			}
+
+			results = append(results, result)
+		}
+	}
+
+	return results
 }
 
 func cleanPath(dir string) (string, error) {

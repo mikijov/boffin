@@ -27,8 +27,10 @@ import (
 // updateCmd represents the update command
 var updateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "update directory for changes",
-	Long:  `update directory for changes.`,
+	Short: "Update repository with meta-data for any changed files.",
+	Long: `Update looks for any added, removed or changed files in the
+	repository and updates meta-data correspondingly. By default, only if file
+	size or modification timestamp are changed will the file checksum be checked.`,
 	// Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		dbDir, err := lib.FindBoffinDir(dbDirFlag)
