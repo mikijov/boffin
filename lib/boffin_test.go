@@ -704,3 +704,491 @@ func TestDiff(t *testing.T) {
 		t.Errorf("Diff:\n%s", diff)
 	}
 }
+
+func TestDiff2(t *testing.T) {
+	var local Boffin = &db{
+		files: []*FileInfo{
+			{
+				Path:     "equal",
+				Size:     10,
+				Time:     parseTime("2020-01-02T12:34:56Z"),
+				Checksum: "equal-hash-2",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "equal-hash-1",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "equal-hash-2",
+					},
+				},
+			},
+			{
+				Path:     "local-added",
+				Size:     10,
+				Time:     parseTime("2020-01-01T12:34:56Z"),
+				Checksum: "local-added-hash-1",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "local-added-hash-1",
+					},
+				},
+			},
+			{
+				Path:     "local-changed",
+				Size:     20,
+				Time:     parseTime("2020-01-02T12:34:56Z"),
+				Checksum: "local-changed-hash-2",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "local-changed-hash-1",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "local-changed-hash-2",
+					},
+				},
+			},
+			{
+				Path:     "local-deleted",
+				Size:     0,
+				Time:     parseTime("2020-01-02T12:34:56Z"),
+				Checksum: "",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "local-deleted-hash-1",
+					},
+					&FileEvent{
+						Type: "deleted",
+						Time: parseTime("2020-01-02T12:34:56Z"),
+					},
+				},
+			},
+			{
+				Path:     "remote-changed",
+				Size:     10,
+				Time:     parseTime("2020-01-01T12:34:56Z"),
+				Checksum: "remote-changed-hash-1",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "remote-changed-hash-1",
+					},
+				},
+			},
+			{
+				Path:     "remote-deleted",
+				Size:     10,
+				Time:     parseTime("2020-01-01T12:34:56Z"),
+				Checksum: "remote-deleted-hash-1",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "remote-deleted-hash-1",
+					},
+				},
+			},
+			{
+				Path:     "conflict",
+				Size:     10,
+				Time:     parseTime("2020-01-02T12:34:56Z"),
+				Checksum: "conflict-hash-L",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "conflict-hash-1",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "conflict-hash-L",
+					},
+				},
+			},
+		},
+	}
+	var remote Boffin = &db{
+		files: []*FileInfo{
+			{
+				Path:     "equal",
+				Size:     10,
+				Time:     parseTime("2020-01-02T12:34:56Z"),
+				Checksum: "equal-hash-2",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "equal-hash-1",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "equal-hash-2",
+					},
+				},
+			},
+			{
+				Path:     "local-changed",
+				Size:     10,
+				Time:     parseTime("2020-01-01T12:34:56Z"),
+				Checksum: "local-changed-hash-1",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "local-changed-hash-1",
+					},
+				},
+			},
+			{
+				Path:     "local-deleted",
+				Size:     10,
+				Time:     parseTime("2020-01-01T12:34:56Z"),
+				Checksum: "local-deleted-hash-1",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "local-deleted-hash-1",
+					},
+				},
+			},
+			{
+				Path:     "remote-added",
+				Size:     10,
+				Time:     parseTime("2020-01-01T12:34:56Z"),
+				Checksum: "remote-added-hash-1",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "remote-added-hash-1",
+					},
+				},
+			},
+			{
+				Path:     "remote-changed",
+				Size:     20,
+				Time:     parseTime("2020-01-02T12:34:56Z"),
+				Checksum: "remote-changed-hash-2",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "remote-changed-hash-1",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "remote-changed-hash-2",
+					},
+				},
+			},
+			{
+				Path:     "remote-deleted",
+				Size:     0,
+				Time:     parseTime("2020-01-02T12:34:56Z"),
+				Checksum: "",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "remote-deleted-hash-1",
+					},
+					&FileEvent{
+						Type: "deleted",
+						Time: parseTime("2020-01-02T12:34:56Z"),
+					},
+				},
+			},
+			{
+				Path:     "conflict",
+				Size:     10,
+				Time:     parseTime("2020-01-03T12:34:56Z"),
+				Checksum: "conflict-hash-R",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "conflict-hash-1",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-03T12:34:56Z"),
+						Checksum: "conflict-hash-R",
+					},
+				},
+			},
+		},
+	}
+
+	expected := []DiffResult{
+		{
+			Result: DiffConflict,
+			Left: &FileInfo{
+				Path:     "conflict",
+				Size:     10,
+				Time:     parseTime("2020-01-02T12:34:56Z"),
+				Checksum: "conflict-hash-L",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "conflict-hash-1",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "conflict-hash-L",
+					},
+				},
+			},
+			Right: &FileInfo{
+				Path:     "conflict",
+				Size:     10,
+				Time:     parseTime("2020-01-03T12:34:56Z"),
+				Checksum: "conflict-hash-R",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "conflict-hash-1",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-03T12:34:56Z"),
+						Checksum: "conflict-hash-R",
+					},
+				},
+			},
+		},
+		{
+			Result: DiffEqual,
+			Left: &FileInfo{
+				Path:     "equal",
+				Size:     10,
+				Time:     parseTime("2020-01-02T12:34:56Z"),
+				Checksum: "equal-hash-2",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "equal-hash-1",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "equal-hash-2",
+					},
+				},
+			},
+			Right: &FileInfo{
+				Path:     "equal",
+				Size:     10,
+				Time:     parseTime("2020-01-02T12:34:56Z"),
+				Checksum: "equal-hash-2",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "equal-hash-1",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "equal-hash-2",
+					},
+				},
+			},
+		},
+		{
+			Result: DiffLocalAdded,
+			Left: &FileInfo{
+				Path:     "local-added",
+				Size:     10,
+				Time:     parseTime("2020-01-01T12:34:56Z"),
+				Checksum: "local-added-hash-1",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "local-added-hash-1",
+					},
+				},
+			},
+		},
+		{
+			Result: DiffLocalChanged,
+			Left: &FileInfo{
+				Path:     "local-changed",
+				Size:     20,
+				Time:     parseTime("2020-01-02T12:34:56Z"),
+				Checksum: "local-changed-hash-2",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "local-changed-hash-1",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "local-changed-hash-2",
+					},
+				},
+			},
+			Right: &FileInfo{
+				Path:     "local-changed",
+				Size:     10,
+				Time:     parseTime("2020-01-01T12:34:56Z"),
+				Checksum: "local-changed-hash-1",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "local-changed-hash-1",
+					},
+				},
+			},
+		},
+		{
+			Result: DiffLocalDeleted,
+			Left: &FileInfo{
+				Path:     "local-deleted",
+				Size:     0,
+				Time:     parseTime("2020-01-02T12:34:56Z"),
+				Checksum: "",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "local-deleted-hash-1",
+					},
+					&FileEvent{
+						Type: "deleted",
+						Time: parseTime("2020-01-02T12:34:56Z"),
+					},
+				},
+			},
+			Right: &FileInfo{
+				Path:     "local-deleted",
+				Size:     10,
+				Time:     parseTime("2020-01-01T12:34:56Z"),
+				Checksum: "local-deleted-hash-1",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "local-deleted-hash-1",
+					},
+				},
+			},
+		},
+		{
+			Result: DiffRemoteAdded,
+			Right: &FileInfo{
+				Path:     "remote-added",
+				Size:     10,
+				Time:     parseTime("2020-01-01T12:34:56Z"),
+				Checksum: "remote-added-hash-1",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "remote-added-hash-1",
+					},
+				},
+			},
+		},
+		{
+			Result: DiffRemoteChanged,
+			Left: &FileInfo{
+				Path:     "remote-changed",
+				Size:     10,
+				Time:     parseTime("2020-01-01T12:34:56Z"),
+				Checksum: "remote-changed-hash-1",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "remote-changed-hash-1",
+					},
+				},
+			},
+			Right: &FileInfo{
+				Path:     "remote-changed",
+				Size:     20,
+				Time:     parseTime("2020-01-02T12:34:56Z"),
+				Checksum: "remote-changed-hash-2",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "remote-changed-hash-1",
+					},
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "remote-changed-hash-2",
+					},
+				},
+			},
+		},
+		{
+			Result: DiffRemoteDeleted,
+			Left: &FileInfo{
+				Path:     "remote-deleted",
+				Size:     10,
+				Time:     parseTime("2020-01-01T12:34:56Z"),
+				Checksum: "remote-deleted-hash-1",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "remote-deleted-hash-1",
+					},
+				},
+			},
+			Right: &FileInfo{
+				Path:     "remote-deleted",
+				Size:     0,
+				Time:     parseTime("2020-01-02T12:34:56Z"),
+				Checksum: "",
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "remote-deleted-hash-1",
+					},
+					&FileEvent{
+						Type: "deleted",
+						Time: parseTime("2020-01-02T12:34:56Z"),
+					},
+				},
+			},
+		},
+	}
+
+	actual := local.Diff2(remote)
+
+	margin, _ := time.ParseDuration("2s")
+	opt1 := cmpopts.EquateApproxTime(margin)
+	opt2 := cmpopts.IgnoreUnexported(FileInfo{})
+
+	if diff := cmp.Diff(expected, actual, opt1, opt2); diff != "" {
+		t.Errorf("Diff2:\n%s", diff)
+	}
+}

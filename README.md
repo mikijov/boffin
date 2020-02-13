@@ -21,6 +21,43 @@
 - [ ] boffin import --stage - import files into a staging directory rather in-place
 - [ ] boffin import --delete - delete local files that have been deleted remotely
 
+- for each file in the remote repo
+  - if not deleted and checksum exists in local repo
+    - mark local file as checked
+    - if match is current file version in local repo
+      - 'Equal'
+    - else - if match is older version
+      - if local file is deleted
+        - 'LocalDeleted'
+      - else
+        - 'LocalChanged'
+  - else
+    - for each checksum in file history
+      - if checksum exists in local repo
+        - mark local file as checked
+        - if match is current file version in local repo
+          - if file is deleted
+            - 'RemoteDeleted'
+          - else
+            - 'RemoteChanged'
+        - else if both files deleted
+          - 'Equal'
+        - else - if match is older version and they are not both deleted
+          - 'Conflict'
+    - else - checksum not matched
+      - if file is deleted
+        - 'RemoteDeleted'
+      - else
+        - 'RemoteAdded'
+
+- for each file in the local repo
+  - if not checked
+    - if deleted
+      - 'LocalDeleted'
+    - else
+      - 'LocalAdded'
+
+
 {
   event: "deleted|moved|changed",
   timestamp: "change timestamp",
@@ -31,7 +68,5 @@
 
 ## to-do
 
-- import new files into staging directory; imported files should be in the same
-  directory structure as the source
 - allow separate staging directories for each source client
 

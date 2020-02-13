@@ -65,6 +65,7 @@ type Boffin interface {
 	Save() error
 	Update() error
 	Diff(other Boffin) []DiffResult
+	Diff2(remote Boffin) []DiffResult
 }
 
 func (fi *FileInfo) isDeleted() bool {
@@ -244,6 +245,18 @@ func (db *db) Update() error {
 const (
 	// DiffEqual indicates that files in both repositories are identical.
 	DiffEqual = iota
+	// DiffLocalAdded indicates that file exists only in the local repository.
+	DiffLocalAdded
+	// DiffRemoteAdded indicates that file exists only in the remote repository.
+	DiffRemoteAdded
+	// DiffLocalChanged indicates that file has been changed in the local repository.
+	DiffLocalChanged
+	// DiffRemoteChanged indicates that file has been changed in the remote repository.
+	DiffRemoteChanged
+	// DiffLocalDeleted indicates that file has been deleted in the local repository.
+	DiffLocalDeleted
+	// DiffRemoteDeleted indicates that file has been deleted in the remote repository.
+	DiffRemoteDeleted
 	// DiffLeftAdded indicates that file exists only in the left repository.
 	DiffLeftAdded
 	// DiffRightAdded indicates that file exists only in the right repository.
@@ -344,6 +357,171 @@ func (db *db) Diff(other Boffin) []DiffResult {
 	return results
 }
 
+// Diff2 ...
+func (db *db) Diff2(remote Boffin) []DiffResult {
+	localFiles := make(map[string]*FileInfo)
+	for _, localFile := range db.files {
+		localFile.checked = false
+		for _, localEvent := range localFile.History {
+			if localEvent.Checksum != "" {
+				localFiles[localEvent.Checksum] = localFile
+			}
+		}
+	}
+
+	// allocate for the worst case
+	results := make([]DiffResult, 0, len(db.files)+len(remote.GetFiles()))
+
+	// - for each file in the remote repo
+	for _, remoteFile := range remote.GetFiles() {
+		localFile, localFound := localFiles[remoteFile.Checksum]
+		//   - if not deleted and checksum exists in local repo
+		if !remoteFile.isDeleted() && localFound {
+			//     - mark local file as checked
+			if localFile.checked {
+				panic("already checked")
+			}
+			localFile.checked = true
+
+			//     - if match is current file version in local repo
+			if remoteFile.Checksum == localFile.Checksum {
+				results = append(results, DiffResult{
+					Result: DiffEqual,
+					Left:   localFile,
+					Right:  remoteFile,
+				})
+				//     - else - if match is older version
+			} else {
+				if localFile.isDeleted() {
+					results = append(results, DiffResult{
+						Result: DiffLocalDeleted,
+						Left:   localFile,
+						Right:  remoteFile,
+					})
+				} else {
+					results = append(results, DiffResult{
+						Result: DiffLocalChanged,
+						Left:   localFile,
+						Right:  remoteFile,
+					})
+				}
+			}
+		} else { // localFound
+			//     - for each checksum in file history
+			foundLocalMatch := false
+			// TODO: comparing first checksum is pointless
+			for i := range remoteFile.History {
+				remoteEvent := remoteFile.History[len(remoteFile.History)-1-i]
+				//       - if checksum exists in local repo
+				localFile, localFound := localFiles[remoteEvent.Checksum]
+				if localFound {
+					//     - mark local file as checked
+					if localFile.checked {
+						panic("already checked")
+					}
+					localFile.checked = true
+					//         - if match is current file version in local repo
+					if remoteEvent.Checksum == localFile.Checksum {
+						if remoteFile.isDeleted() {
+							results = append(results, DiffResult{
+								Result: DiffRemoteDeleted,
+								Left:   localFile,
+								Right:  remoteFile,
+							})
+						} else {
+							results = append(results, DiffResult{
+								Result: DiffRemoteChanged,
+								Left:   localFile,
+								Right:  remoteFile,
+							})
+						}
+					} else if remoteFile.isDeleted() && localFile.isDeleted() {
+						//         - else if both files deleted
+						// TODO: merge histories?
+						results = append(results, DiffResult{
+							Result: DiffRemoteChanged,
+							Left:   localFile,
+							Right:  remoteFile,
+						})
+					} else { // both local and remote file have changes after the matched checksums
+						//         - else - if match is older version and they are not both deleted
+						results = append(results, DiffResult{
+							Result: DiffConflict,
+							Left:   localFile,
+							Right:  remoteFile,
+						})
+					}
+
+					foundLocalMatch = true
+					break // stop on first match
+				} // localFound
+			} // for remote history
+
+			// if none of the historic hashes found in local repo
+			if !foundLocalMatch {
+				//     - else - checksum not matched
+				if remoteFile.isDeleted() {
+					// TODO: keep history?
+					results = append(results, DiffResult{
+						Result: DiffEqual,
+						Right:  remoteFile,
+					})
+				} else {
+					results = append(results, DiffResult{
+						Result: DiffRemoteAdded,
+						Right:  remoteFile,
+					})
+				}
+			}
+		}
+	}
+
+	// - for each file in the local repo
+	//   - if not checked
+	//     - if deleted
+	//       - 'LocalDeleted'
+	//     - else
+	//       - 'LocalAdded'
+	for _, localFile := range db.files {
+		if !localFile.checked {
+			if localFile.isDeleted() {
+				results = append(results, DiffResult{
+					Result: DiffLocalDeleted,
+					Left:   localFile,
+				})
+			} else {
+				results = append(results, DiffResult{
+					Result: DiffLocalAdded,
+					Left:   localFile,
+				})
+			}
+		}
+	}
+
+	// sort results according to local path names
+	sort.Slice(results, func(i, j int) bool {
+		var iFile string
+		iResult := results[i]
+		if iResult.Left != nil {
+			iFile = iResult.Left.Path
+		} else {
+			iFile = iResult.Right.Path
+		}
+
+		var jFile string
+		jResult := results[j]
+		if jResult.Left != nil {
+			jFile = jResult.Left.Path
+		} else {
+			jFile = jResult.Right.Path
+		}
+
+		return iFile < jFile
+	})
+
+	return results
+}
+
 func cleanPath(dir string) (string, error) {
 	dir, err := filepath.Abs(dir)
 	if err != nil {
@@ -351,47 +529,6 @@ func cleanPath(dir string) (string, error) {
 	}
 	return filepath.Clean(dir), nil
 }
-
-// // Copy the src file to dst. Any existing file will be overwritten and will not
-// // copy file attributes.
-// func copyFile(src, dst string) error {
-// 	fmt.Printf("%s => %s\n", src, dst)
-//
-// 	stat, err := os.Stat(src)
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	in, err := os.Open(src)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer in.Close()
-//
-// 	out, err := os.OpenFile(dst, os.O_CREAT|os.O_EXCL|os.O_WRONLY, 0600)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer out.Close()
-//
-// 	_, err = io.Copy(out, in)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	err = out.Chmod(stat.Mode())
-// 	if err != nil {
-// 		return err
-// 	}
-// 	err = out.Close()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	err = os.Chtimes(dst, stat.ModTime(), stat.ModTime())
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
 
 // dP                                dP      d8' .d88888b
 // 88                                88     d8'  88.    "'
