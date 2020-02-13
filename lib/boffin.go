@@ -247,28 +247,16 @@ const (
 	DiffEqual = iota
 	// DiffLocalAdded indicates that file exists only in the local repository.
 	DiffLocalAdded
-	// DiffRemoteAdded indicates that file exists only in the remote repository.
-	DiffRemoteAdded
 	// DiffLocalChanged indicates that file has been changed in the local repository.
 	DiffLocalChanged
-	// DiffRemoteChanged indicates that file has been changed in the remote repository.
-	DiffRemoteChanged
 	// DiffLocalDeleted indicates that file has been deleted in the local repository.
 	DiffLocalDeleted
+	// DiffRemoteAdded indicates that file exists only in the remote repository.
+	DiffRemoteAdded
+	// DiffRemoteChanged indicates that file has been changed in the remote repository.
+	DiffRemoteChanged
 	// DiffRemoteDeleted indicates that file has been deleted in the remote repository.
 	DiffRemoteDeleted
-	// DiffLeftAdded indicates that file exists only in the left repository.
-	DiffLeftAdded
-	// DiffRightAdded indicates that file exists only in the right repository.
-	DiffRightAdded
-	// DiffLeftChanged indicates that file has been changed in the left repository.
-	DiffLeftChanged
-	// DiffRightChanged indicates that file has been changed in the right repository.
-	DiffRightChanged
-	// DiffLeftDeleted indicates that file has been deleted in the left repository.
-	DiffLeftDeleted
-	// DiffRightDeleted indicates that file has been deleted in the right repository.
-	DiffRightDeleted
 	// DiffConflict indicates that file has changed in both repositories.
 	DiffConflict
 )
@@ -276,8 +264,8 @@ const (
 // DiffResult ...
 type DiffResult struct {
 	Result int
-	Left   *FileInfo
-	Right  *FileInfo
+	Local  *FileInfo
+	Remote *FileInfo
 }
 
 // Diff ...
@@ -299,52 +287,52 @@ func (db *db) Diff(other Boffin) []DiffResult {
 	i := 0
 	j := 0
 	for i < len(db.files) || j < len(otherFiles) {
-		var left *FileInfo
+		var localFile *FileInfo
 		if i < len(db.files) {
-			left = db.files[i]
+			localFile = db.files[i]
 		}
 
-		var right *FileInfo
+		var remoteFile *FileInfo
 		if j < len(otherFiles) {
-			right = otherFiles[j]
+			remoteFile = otherFiles[j]
 		}
 
-		if right == nil || (left != nil && left.Path < right.Path) {
+		if remoteFile == nil || (localFile != nil && localFile.Path < remoteFile.Path) {
 			results = append(results, DiffResult{
-				Result: DiffLeftAdded,
-				Left:   left,
+				Result: DiffLocalAdded,
+				Local:  localFile,
 			})
 			i = i + 1
-		} else if left == nil || (right == nil && left.Path > right.Path) {
+		} else if localFile == nil || (remoteFile == nil && localFile.Path > remoteFile.Path) {
 			results = append(results, DiffResult{
-				Result: DiffRightAdded,
-				Right:  right,
+				Result: DiffRemoteAdded,
+				Remote: remoteFile,
 			})
 			j = j + 1
 		} else {
 			result := DiffResult{
-				Left:  left,
-				Right: right,
+				Local:  localFile,
+				Remote: remoteFile,
 			}
 			i = i + 1
 			j = j + 1
 
-			if left.Checksum == right.Checksum {
+			if localFile.Checksum == remoteFile.Checksum {
 				result.Result = DiffEqual
-			} else if left.isDeleted() {
-				result.Result = DiffLeftDeleted
-			} else if right.isDeleted() {
-				result.Result = DiffRightDeleted
+			} else if localFile.isDeleted() {
+				result.Result = DiffLocalDeleted
+			} else if remoteFile.isDeleted() {
+				result.Result = DiffRemoteDeleted
 			} else {
-				rightNewer := right.inheritsFrom(left.Checksum)
-				leftNewer := left.inheritsFrom(right.Checksum)
+				rightNewer := remoteFile.inheritsFrom(localFile.Checksum)
+				leftNewer := localFile.inheritsFrom(remoteFile.Checksum)
 
 				if rightNewer && leftNewer {
 					result.Result = DiffConflict
 				} else if rightNewer {
-					result.Result = DiffRightChanged
+					result.Result = DiffRemoteChanged
 				} else if leftNewer {
-					result.Result = DiffLeftChanged
+					result.Result = DiffLocalChanged
 				} else {
 					result.Result = DiffConflict
 				}
@@ -387,22 +375,22 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 			if remoteFile.Checksum == localFile.Checksum {
 				results = append(results, DiffResult{
 					Result: DiffEqual,
-					Left:   localFile,
-					Right:  remoteFile,
+					Local:  localFile,
+					Remote: remoteFile,
 				})
 				//     - else - if match is older version
 			} else {
 				if localFile.isDeleted() {
 					results = append(results, DiffResult{
 						Result: DiffLocalDeleted,
-						Left:   localFile,
-						Right:  remoteFile,
+						Local:  localFile,
+						Remote: remoteFile,
 					})
 				} else {
 					results = append(results, DiffResult{
 						Result: DiffLocalChanged,
-						Left:   localFile,
-						Right:  remoteFile,
+						Local:  localFile,
+						Remote: remoteFile,
 					})
 				}
 			}
@@ -425,14 +413,14 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 						if remoteFile.isDeleted() {
 							results = append(results, DiffResult{
 								Result: DiffRemoteDeleted,
-								Left:   localFile,
-								Right:  remoteFile,
+								Local:  localFile,
+								Remote: remoteFile,
 							})
 						} else {
 							results = append(results, DiffResult{
 								Result: DiffRemoteChanged,
-								Left:   localFile,
-								Right:  remoteFile,
+								Local:  localFile,
+								Remote: remoteFile,
 							})
 						}
 					} else if remoteFile.isDeleted() && localFile.isDeleted() {
@@ -440,15 +428,15 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 						// TODO: merge histories?
 						results = append(results, DiffResult{
 							Result: DiffRemoteChanged,
-							Left:   localFile,
-							Right:  remoteFile,
+							Local:  localFile,
+							Remote: remoteFile,
 						})
 					} else { // both local and remote file have changes after the matched checksums
 						//         - else - if match is older version and they are not both deleted
 						results = append(results, DiffResult{
 							Result: DiffConflict,
-							Left:   localFile,
-							Right:  remoteFile,
+							Local:  localFile,
+							Remote: remoteFile,
 						})
 					}
 
@@ -464,12 +452,12 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 					// TODO: keep history?
 					results = append(results, DiffResult{
 						Result: DiffEqual,
-						Right:  remoteFile,
+						Remote: remoteFile,
 					})
 				} else {
 					results = append(results, DiffResult{
 						Result: DiffRemoteAdded,
-						Right:  remoteFile,
+						Remote: remoteFile,
 					})
 				}
 			}
@@ -487,12 +475,12 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 			if localFile.isDeleted() {
 				results = append(results, DiffResult{
 					Result: DiffLocalDeleted,
-					Left:   localFile,
+					Local:  localFile,
 				})
 			} else {
 				results = append(results, DiffResult{
 					Result: DiffLocalAdded,
-					Left:   localFile,
+					Local:  localFile,
 				})
 			}
 		}
@@ -502,18 +490,18 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 	sort.Slice(results, func(i, j int) bool {
 		var iFile string
 		iResult := results[i]
-		if iResult.Left != nil {
-			iFile = iResult.Left.Path
+		if iResult.Local != nil {
+			iFile = iResult.Local.Path
 		} else {
-			iFile = iResult.Right.Path
+			iFile = iResult.Remote.Path
 		}
 
 		var jFile string
 		jResult := results[j]
-		if jResult.Left != nil {
-			jFile = jResult.Left.Path
+		if jResult.Local != nil {
+			jFile = jResult.Local.Path
 		} else {
-			jFile = jResult.Right.Path
+			jFile = jResult.Remote.Path
 		}
 
 		return iFile < jFile

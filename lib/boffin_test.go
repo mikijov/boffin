@@ -238,7 +238,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestDiff(t *testing.T) {
-	var left Boffin = &db{
+	var local Boffin = &db{
 		files: []*FileInfo{
 			{
 				Path:     "equal.ext",
@@ -259,7 +259,7 @@ func TestDiff(t *testing.T) {
 				},
 			},
 			{
-				Path:     "sub1/left.ext",
+				Path:     "sub1/local.ext",
 				Size:     10,
 				Time:     parseTime("2020-02-06T13:57:02.90203166Z"),
 				Checksum: "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
@@ -272,7 +272,7 @@ func TestDiff(t *testing.T) {
 				},
 			},
 			{
-				Path:     "sub1/left-deleted.ext",
+				Path:     "sub1/local-deleted.ext",
 				Size:     0,
 				Time:     parseTime("2020-02-08T13:57:12.378926011Z"),
 				Checksum: "",
@@ -289,7 +289,7 @@ func TestDiff(t *testing.T) {
 				},
 			},
 			{
-				Path:     "sub1/right-deleted.ext",
+				Path:     "sub1/remote-deleted.ext",
 				Size:     10,
 				Time:     parseTime("2020-02-06T13:59:21.099018324Z"),
 				Checksum: "71JuQzM1k9ZV2tMnnhemjf+FUfbEEs8YS170IORPpA4=",
@@ -315,7 +315,7 @@ func TestDiff(t *testing.T) {
 				},
 			},
 			{
-				Path:     "sub1/left-changed.ext",
+				Path:     "sub1/local-changed.ext",
 				Size:     11,
 				Time:     parseTime("2020-02-09T21:01:11.11974727Z"),
 				Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYaD=",
@@ -333,7 +333,7 @@ func TestDiff(t *testing.T) {
 				},
 			},
 			{
-				Path:     "sub1/right-changed.ext",
+				Path:     "sub1/remote-changed.ext",
 				Size:     10,
 				Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
 				Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
@@ -347,7 +347,7 @@ func TestDiff(t *testing.T) {
 			},
 		},
 	}
-	var right Boffin = &db{
+	var remote Boffin = &db{
 		files: []*FileInfo{
 			{
 				Path:     "equal.ext",
@@ -368,7 +368,7 @@ func TestDiff(t *testing.T) {
 				},
 			},
 			{
-				Path:     "sub1/right.ext",
+				Path:     "sub1/remote.ext",
 				Size:     10,
 				Time:     parseTime("2020-02-06T13:57:02.90203166Z"),
 				Checksum: "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
@@ -381,7 +381,7 @@ func TestDiff(t *testing.T) {
 				},
 			},
 			{
-				Path:     "sub1/left-deleted.ext",
+				Path:     "sub1/local-deleted.ext",
 				Size:     10,
 				Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
 				Checksum: "4PFd3bElTqFi8wvTlY2eRK6sJo65UivdK95nd7it5h4=",
@@ -394,7 +394,7 @@ func TestDiff(t *testing.T) {
 				},
 			},
 			{
-				Path:     "sub1/right-deleted.ext",
+				Path:     "sub1/remote-deleted.ext",
 				Size:     0,
 				Time:     parseTime("2020-02-09T13:59:21.099018324Z"),
 				Checksum: "",
@@ -424,7 +424,7 @@ func TestDiff(t *testing.T) {
 				},
 			},
 			{
-				Path:     "sub1/left-changed.ext",
+				Path:     "sub1/local-changed.ext",
 				Size:     10,
 				Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
 				Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
@@ -437,7 +437,7 @@ func TestDiff(t *testing.T) {
 				},
 			},
 			{
-				Path:     "sub1/right-changed.ext",
+				Path:     "sub1/remote-changed.ext",
 				Size:     11,
 				Time:     parseTime("2020-02-08T21:01:11.11974727Z"),
 				Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYaD=",
@@ -460,7 +460,7 @@ func TestDiff(t *testing.T) {
 	expected := []DiffResult{
 		{
 			Result: DiffEqual,
-			Left: &FileInfo{
+			Local: &FileInfo{
 				Path:     "equal.ext",
 				Size:     10,
 				Time:     parseTime("2020-02-06T13:56:51.571756332Z"),
@@ -478,7 +478,7 @@ func TestDiff(t *testing.T) {
 					},
 				},
 			},
-			Right: &FileInfo{
+			Remote: &FileInfo{
 				Path:     "equal.ext",
 				Size:     10,
 				Time:     parseTime("2020-02-06T13:56:51.571756332Z"),
@@ -499,7 +499,7 @@ func TestDiff(t *testing.T) {
 		},
 		{
 			Result: DiffConflict,
-			Left: &FileInfo{
+			Local: &FileInfo{
 				Path:     "sub1/conflict.ext",
 				Size:     10,
 				Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
@@ -512,7 +512,7 @@ func TestDiff(t *testing.T) {
 					},
 				},
 			},
-			Right: &FileInfo{
+			Remote: &FileInfo{
 				Path:     "sub1/conflict.ext",
 				Size:     20,
 				Time:     parseTime("2020-02-08T21:01:11.11974727Z"),
@@ -527,9 +527,9 @@ func TestDiff(t *testing.T) {
 			},
 		},
 		{
-			Result: DiffLeftChanged,
-			Left: &FileInfo{
-				Path:     "sub1/left-changed.ext",
+			Result: DiffLocalChanged,
+			Local: &FileInfo{
+				Path:     "sub1/local-changed.ext",
 				Size:     11,
 				Time:     parseTime("2020-02-09T21:01:11.11974727Z"),
 				Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYaD=",
@@ -546,8 +546,8 @@ func TestDiff(t *testing.T) {
 					},
 				},
 			},
-			Right: &FileInfo{
-				Path:     "sub1/left-changed.ext",
+			Remote: &FileInfo{
+				Path:     "sub1/local-changed.ext",
 				Size:     10,
 				Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
 				Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
@@ -561,9 +561,9 @@ func TestDiff(t *testing.T) {
 			},
 		},
 		{
-			Result: DiffLeftDeleted,
-			Left: &FileInfo{
-				Path:     "sub1/left-deleted.ext",
+			Result: DiffLocalDeleted,
+			Local: &FileInfo{
+				Path:     "sub1/local-deleted.ext",
 				Size:     0,
 				Time:     parseTime("2020-02-08T13:57:12.378926011Z"),
 				Checksum: "",
@@ -579,8 +579,8 @@ func TestDiff(t *testing.T) {
 					},
 				},
 			},
-			Right: &FileInfo{
-				Path:     "sub1/left-deleted.ext",
+			Remote: &FileInfo{
+				Path:     "sub1/local-deleted.ext",
 				Size:     10,
 				Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
 				Checksum: "4PFd3bElTqFi8wvTlY2eRK6sJo65UivdK95nd7it5h4=",
@@ -594,9 +594,9 @@ func TestDiff(t *testing.T) {
 			},
 		},
 		{
-			Result: DiffLeftAdded,
-			Left: &FileInfo{
-				Path:     "sub1/left.ext",
+			Result: DiffLocalAdded,
+			Local: &FileInfo{
+				Path:     "sub1/local.ext",
 				Size:     10,
 				Time:     parseTime("2020-02-06T13:57:02.90203166Z"),
 				Checksum: "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
@@ -610,9 +610,9 @@ func TestDiff(t *testing.T) {
 			},
 		},
 		{
-			Result: DiffRightChanged,
-			Left: &FileInfo{
-				Path:     "sub1/right-changed.ext",
+			Result: DiffRemoteChanged,
+			Local: &FileInfo{
+				Path:     "sub1/remote-changed.ext",
 				Size:     10,
 				Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
 				Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
@@ -624,8 +624,8 @@ func TestDiff(t *testing.T) {
 					},
 				},
 			},
-			Right: &FileInfo{
-				Path:     "sub1/right-changed.ext",
+			Remote: &FileInfo{
+				Path:     "sub1/remote-changed.ext",
 				Size:     11,
 				Time:     parseTime("2020-02-08T21:01:11.11974727Z"),
 				Checksum: "A12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYaD=",
@@ -644,9 +644,9 @@ func TestDiff(t *testing.T) {
 			},
 		},
 		{
-			Result: DiffRightDeleted,
-			Left: &FileInfo{
-				Path:     "sub1/right-deleted.ext",
+			Result: DiffRemoteDeleted,
+			Local: &FileInfo{
+				Path:     "sub1/remote-deleted.ext",
 				Size:     10,
 				Time:     parseTime("2020-02-06T13:59:21.099018324Z"),
 				Checksum: "71JuQzM1k9ZV2tMnnhemjf+FUfbEEs8YS170IORPpA4=",
@@ -658,8 +658,8 @@ func TestDiff(t *testing.T) {
 					},
 				},
 			},
-			Right: &FileInfo{
-				Path:     "sub1/right-deleted.ext",
+			Remote: &FileInfo{
+				Path:     "sub1/remote-deleted.ext",
 				Size:     0,
 				Time:     parseTime("2020-02-09T13:59:21.099018324Z"),
 				Checksum: "",
@@ -677,9 +677,9 @@ func TestDiff(t *testing.T) {
 			},
 		},
 		{
-			Result: DiffRightAdded,
-			Right: &FileInfo{
-				Path:     "sub1/right.ext",
+			Result: DiffRemoteAdded,
+			Remote: &FileInfo{
+				Path:     "sub1/remote.ext",
 				Size:     10,
 				Time:     parseTime("2020-02-06T13:57:02.90203166Z"),
 				Checksum: "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
@@ -694,7 +694,7 @@ func TestDiff(t *testing.T) {
 		},
 	}
 
-	actual := left.Diff(right)
+	actual := local.Diff(remote)
 
 	margin, _ := time.ParseDuration("2s")
 	opt1 := cmpopts.EquateApproxTime(margin)
@@ -938,7 +938,7 @@ func TestDiff2(t *testing.T) {
 	expected := []DiffResult{
 		{
 			Result: DiffConflict,
-			Left: &FileInfo{
+			Local: &FileInfo{
 				Path:     "conflict",
 				Size:     10,
 				Time:     parseTime("2020-01-02T12:34:56Z"),
@@ -956,7 +956,7 @@ func TestDiff2(t *testing.T) {
 					},
 				},
 			},
-			Right: &FileInfo{
+			Remote: &FileInfo{
 				Path:     "conflict",
 				Size:     10,
 				Time:     parseTime("2020-01-03T12:34:56Z"),
@@ -977,7 +977,7 @@ func TestDiff2(t *testing.T) {
 		},
 		{
 			Result: DiffEqual,
-			Left: &FileInfo{
+			Local: &FileInfo{
 				Path:     "equal",
 				Size:     10,
 				Time:     parseTime("2020-01-02T12:34:56Z"),
@@ -995,7 +995,7 @@ func TestDiff2(t *testing.T) {
 					},
 				},
 			},
-			Right: &FileInfo{
+			Remote: &FileInfo{
 				Path:     "equal",
 				Size:     10,
 				Time:     parseTime("2020-01-02T12:34:56Z"),
@@ -1016,7 +1016,7 @@ func TestDiff2(t *testing.T) {
 		},
 		{
 			Result: DiffLocalAdded,
-			Left: &FileInfo{
+			Local: &FileInfo{
 				Path:     "local-added",
 				Size:     10,
 				Time:     parseTime("2020-01-01T12:34:56Z"),
@@ -1032,7 +1032,7 @@ func TestDiff2(t *testing.T) {
 		},
 		{
 			Result: DiffLocalChanged,
-			Left: &FileInfo{
+			Local: &FileInfo{
 				Path:     "local-changed",
 				Size:     20,
 				Time:     parseTime("2020-01-02T12:34:56Z"),
@@ -1050,7 +1050,7 @@ func TestDiff2(t *testing.T) {
 					},
 				},
 			},
-			Right: &FileInfo{
+			Remote: &FileInfo{
 				Path:     "local-changed",
 				Size:     10,
 				Time:     parseTime("2020-01-01T12:34:56Z"),
@@ -1066,7 +1066,7 @@ func TestDiff2(t *testing.T) {
 		},
 		{
 			Result: DiffLocalDeleted,
-			Left: &FileInfo{
+			Local: &FileInfo{
 				Path:     "local-deleted",
 				Size:     0,
 				Time:     parseTime("2020-01-02T12:34:56Z"),
@@ -1083,7 +1083,7 @@ func TestDiff2(t *testing.T) {
 					},
 				},
 			},
-			Right: &FileInfo{
+			Remote: &FileInfo{
 				Path:     "local-deleted",
 				Size:     10,
 				Time:     parseTime("2020-01-01T12:34:56Z"),
@@ -1099,7 +1099,7 @@ func TestDiff2(t *testing.T) {
 		},
 		{
 			Result: DiffRemoteAdded,
-			Right: &FileInfo{
+			Remote: &FileInfo{
 				Path:     "remote-added",
 				Size:     10,
 				Time:     parseTime("2020-01-01T12:34:56Z"),
@@ -1115,7 +1115,7 @@ func TestDiff2(t *testing.T) {
 		},
 		{
 			Result: DiffRemoteChanged,
-			Left: &FileInfo{
+			Local: &FileInfo{
 				Path:     "remote-changed",
 				Size:     10,
 				Time:     parseTime("2020-01-01T12:34:56Z"),
@@ -1128,7 +1128,7 @@ func TestDiff2(t *testing.T) {
 					},
 				},
 			},
-			Right: &FileInfo{
+			Remote: &FileInfo{
 				Path:     "remote-changed",
 				Size:     20,
 				Time:     parseTime("2020-01-02T12:34:56Z"),
@@ -1149,7 +1149,7 @@ func TestDiff2(t *testing.T) {
 		},
 		{
 			Result: DiffRemoteDeleted,
-			Left: &FileInfo{
+			Local: &FileInfo{
 				Path:     "remote-deleted",
 				Size:     10,
 				Time:     parseTime("2020-01-01T12:34:56Z"),
@@ -1162,7 +1162,7 @@ func TestDiff2(t *testing.T) {
 					},
 				},
 			},
-			Right: &FileInfo{
+			Remote: &FileInfo{
 				Path:     "remote-deleted",
 				Size:     0,
 				Time:     parseTime("2020-01-02T12:34:56Z"),
