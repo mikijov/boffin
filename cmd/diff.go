@@ -42,7 +42,7 @@ var diffCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		left, err := lib.LoadBoffin(dbDir)
+		local, err := lib.LoadBoffin(dbDir)
 		if err != nil {
 			fmt.Printf("ERROR: %v\n", err)
 			os.Exit(1)
@@ -54,31 +54,31 @@ var diffCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		right, err := lib.LoadBoffin(dbDir)
+		remote, err := lib.LoadBoffin(dbDir)
 		if err != nil {
 			fmt.Printf("ERROR: %v\n", err)
 			os.Exit(1)
 		}
 
-		for _, diff := range left.Diff(right) {
+		for _, diff := range local.Diff2(remote) {
 			if diff.Result == lib.DiffEqual {
-				fmt.Printf("=:%s\n", diff.Left.Path)
-			} else if diff.Result == lib.DiffLeftAdded {
-				fmt.Printf("L:%s\n", diff.Left.Path)
-			} else if diff.Result == lib.DiffRightAdded {
-				fmt.Printf("R:%s\n", diff.Right.Path)
-			} else if diff.Result == lib.DiffLeftDeleted {
-				fmt.Printf("+:%s\n", diff.Left.Path)
-			} else if diff.Result == lib.DiffRightAdded {
-				fmt.Printf("-:%s\n", diff.Left.Path)
-			} else if diff.Result == lib.DiffLeftChanged {
-				fmt.Printf(">:%s\n", diff.Left.Path)
-			} else if diff.Result == lib.DiffRightChanged {
-				fmt.Printf("<:%s\n", diff.Left.Path)
+				fmt.Printf("=:%s\n", diff.Local.Path)
+			} else if diff.Result == lib.DiffLocalAdded {
+				fmt.Printf("L:%s\n", diff.Local.Path)
+			} else if diff.Result == lib.DiffRemoteAdded {
+				fmt.Printf("R:%s\n", diff.Remote.Path)
+			} else if diff.Result == lib.DiffLocalDeleted {
+				fmt.Printf("+:%s\n", diff.Local.Path)
+			} else if diff.Result == lib.DiffRemoteAdded {
+				fmt.Printf("-:%s\n", diff.Local.Path)
+			} else if diff.Result == lib.DiffLocalChanged {
+				fmt.Printf(">:%s\n", diff.Local.Path)
+			} else if diff.Result == lib.DiffRemoteChanged {
+				fmt.Printf("<:%s\n", diff.Local.Path)
 			} else if diff.Result == lib.DiffConflict {
-				fmt.Printf("~:%s\n", diff.Left.Path)
+				fmt.Printf("~:%s\n", diff.Local.Path)
 			} else {
-				fmt.Printf("~:%s\n", diff.Left.Path)
+				fmt.Printf("~:%s\n", diff.Local.Path)
 			}
 		}
 	},
