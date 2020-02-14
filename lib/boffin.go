@@ -38,6 +38,8 @@ const deleted = "deleted"
 
 // FileEvent ...
 type FileEvent struct {
+	Path     string    `json:"path"`
+	Size     int64     `json:"size"`
 	Type     string    `json:"event"`
 	Time     time.Time `json:"time"`
 	Checksum string    `json:"checksum,omitempty"`
@@ -45,12 +47,7 @@ type FileEvent struct {
 
 // FileInfo ...
 type FileInfo struct {
-	Path     string       `json:"path"`
-	Size     int64        `json:"size"`
-	Time     time.Time    `json:"time"`
-	Checksum string       `json:"checksum,omitempty"`
-	History  []*FileEvent `json:"history,omitempty"`
-
+	History []*FileEvent `json:"history,omitempty"`
 	checked bool
 }
 
@@ -68,8 +65,51 @@ type Boffin interface {
 	Diff2(remote Boffin) []DiffResult
 }
 
+func (fi *FileInfo) Checksum() string {
+	for i := range fi.History {
+		event := fi.History[len(fi.History)-1-i]
+		if event.Checksum != "" {
+			return event.Checksum
+		}
+	}
+	return ""
+}
+
+func (fi *FileInfo) Path() string {
+	for i := range fi.History {
+		event := fi.History[len(fi.History)-1-i]
+		if event.Checksum != "" {
+			return event.Path
+		}
+	}
+	return ""
+}
+
+func (fi *FileInfo) Size() int64 {
+	for i := range fi.History {
+		event := fi.History[len(fi.History)-1-i]
+		if event.Checksum != "" {
+			return event.Size
+		}
+	}
+	return 0
+}
+
+func (fi *FileInfo) Time() time.Time {
+	for i := range fi.History {
+		event := fi.History[len(fi.History)-1-i]
+		if event.Checksum != "" {
+			return event.Time
+		}
+	}
+	return time.Time{}
+}
+
 func (fi *FileInfo) isDeleted() bool {
-	return fi.Checksum == ""
+	if len(fi.History) == 0 {
+		return true
+	}
+	return fi.History[len(fi.History)-1].Checksum == ""
 }
 
 func (fi *FileInfo) inheritsFrom(checksum string) bool {
@@ -83,23 +123,21 @@ func (fi *FileInfo) inheritsFrom(checksum string) bool {
 
 func (fi *FileInfo) markDeleted() {
 	if !fi.isDeleted() {
-		fi.Checksum = ""
-		fi.Size = 0
-		fi.Time = time.Now().UTC()
 
 		fi.History = append(fi.History, &FileEvent{
+			Path: fi.Path(),
 			Type: deleted,
-			Time: fi.Time,
+			Time: time.Now().UTC(),
 		})
 	}
 }
 
-func (fi *FileInfo) update(path string, info os.FileInfo) error {
+func (fi *FileInfo) update(path, relPath string, info os.FileInfo) error {
 	fi.checked = true
 	// fmt.Printf("checking %s\n", fm.Name)
 
 	if !fi.isDeleted() { // check size/time only if not marked as deleted
-		if info.Size() == fi.Size && info.ModTime().UTC() == fi.Time {
+		if info.Size() == fi.Size() && info.ModTime().UTC() == fi.Time() {
 			// size and time matches, assume no change
 			return nil
 		}
@@ -119,13 +157,11 @@ func (fi *FileInfo) update(path string, info os.FileInfo) error {
 	hashStr := base64.StdEncoding.EncodeToString(hash.Sum(nil))
 	// fmt.Printf("Hash: %s\n", hashStr)
 
-	fi.Size = info.Size()
-	fi.Time = info.ModTime().UTC()
-	fi.Checksum = hashStr
-
 	fi.History = append(fi.History, &FileEvent{
+		Path:     relPath,
+		Size:     info.Size(),
 		Type:     changed,
-		Time:     fi.Time,
+		Time:     info.ModTime().UTC(),
 		Checksum: hashStr,
 	})
 
@@ -170,7 +206,7 @@ func sliceToMap(files []*FileInfo) map[string]*FileInfo {
 	fileMap := make(map[string]*FileInfo)
 
 	for _, file := range files {
-		fileMap[file.Path] = file
+		fileMap[file.Path()] = file
 	}
 
 	return fileMap
@@ -214,14 +250,12 @@ func (db *db) Update() error {
 
 		file, ok := fileMap[relPath]
 		if !ok {
-			file = &FileInfo{
-				Path: relPath,
-			}
+			file = &FileInfo{}
 			fileMap[relPath] = file
 			db.files = append(db.files, file)
 		}
 
-		err = file.update(path, info)
+		err = file.update(path, relPath, info)
 		if err != nil {
 			return err
 		}
@@ -274,10 +308,10 @@ func (db *db) Diff(other Boffin) []DiffResult {
 
 	// sort both file lists so that we can perform merge
 	sort.Slice(db.files, func(i, j int) bool {
-		return db.files[i].Path < db.files[j].Path
+		return db.files[i].Path() < db.files[j].Path()
 	})
 	sort.Slice(otherFiles, func(i, j int) bool {
-		return otherFiles[i].Path < otherFiles[j].Path
+		return otherFiles[i].Path() < otherFiles[j].Path()
 	})
 
 	// allocate for the worst case
@@ -297,13 +331,13 @@ func (db *db) Diff(other Boffin) []DiffResult {
 			remoteFile = otherFiles[j]
 		}
 
-		if remoteFile == nil || (localFile != nil && localFile.Path < remoteFile.Path) {
+		if remoteFile == nil || (localFile != nil && localFile.Path() < remoteFile.Path()) {
 			results = append(results, DiffResult{
 				Result: DiffLocalAdded,
 				Local:  localFile,
 			})
 			i = i + 1
-		} else if localFile == nil || (remoteFile == nil && localFile.Path > remoteFile.Path) {
+		} else if localFile == nil || (remoteFile == nil && localFile.Path() > remoteFile.Path()) {
 			results = append(results, DiffResult{
 				Result: DiffRemoteAdded,
 				Remote: remoteFile,
@@ -317,15 +351,17 @@ func (db *db) Diff(other Boffin) []DiffResult {
 			i = i + 1
 			j = j + 1
 
-			if localFile.Checksum == remoteFile.Checksum {
+			if localFile.isDeleted() && remoteFile.isDeleted() {
 				result.Result = DiffEqual
 			} else if localFile.isDeleted() {
 				result.Result = DiffLocalDeleted
 			} else if remoteFile.isDeleted() {
 				result.Result = DiffRemoteDeleted
+			} else if localFile.Checksum() == remoteFile.Checksum() {
+				result.Result = DiffEqual
 			} else {
-				rightNewer := remoteFile.inheritsFrom(localFile.Checksum)
-				leftNewer := localFile.inheritsFrom(remoteFile.Checksum)
+				rightNewer := remoteFile.inheritsFrom(localFile.Checksum())
+				leftNewer := localFile.inheritsFrom(remoteFile.Checksum())
 
 				if rightNewer && leftNewer {
 					result.Result = DiffConflict
@@ -362,7 +398,7 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 
 	// - for each file in the remote repo
 	for _, remoteFile := range remote.GetFiles() {
-		localFile, localFound := localFiles[remoteFile.Checksum]
+		localFile, localFound := localFiles[remoteFile.Checksum()]
 		//   - if not deleted and checksum exists in local repo
 		if !remoteFile.isDeleted() && localFound {
 			//     - mark local file as checked
@@ -372,7 +408,20 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 			localFile.checked = true
 
 			//     - if match is current file version in local repo
-			if remoteFile.Checksum == localFile.Checksum {
+			if remoteFile.isDeleted() && localFile.isDeleted() {
+				results = append(results, DiffResult{
+					Result: DiffEqual,
+					Local:  localFile,
+					Remote: remoteFile,
+				})
+				//     - else - if match is older version
+			} else if localFile.isDeleted() {
+				results = append(results, DiffResult{
+					Result: DiffLocalDeleted,
+					Local:  localFile,
+					Remote: remoteFile,
+				})
+			} else if remoteFile.Checksum() == localFile.Checksum() {
 				results = append(results, DiffResult{
 					Result: DiffEqual,
 					Local:  localFile,
@@ -380,19 +429,11 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 				})
 				//     - else - if match is older version
 			} else {
-				if localFile.isDeleted() {
-					results = append(results, DiffResult{
-						Result: DiffLocalDeleted,
-						Local:  localFile,
-						Remote: remoteFile,
-					})
-				} else {
-					results = append(results, DiffResult{
-						Result: DiffLocalChanged,
-						Local:  localFile,
-						Remote: remoteFile,
-					})
-				}
+				results = append(results, DiffResult{
+					Result: DiffLocalChanged,
+					Local:  localFile,
+					Remote: remoteFile,
+				})
 			}
 		} else { // localFound
 			//     - for each checksum in file history
@@ -409,7 +450,7 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 					}
 					localFile.checked = true
 					//         - if match is current file version in local repo
-					if remoteEvent.Checksum == localFile.Checksum {
+					if remoteEvent.Checksum == localFile.Checksum() {
 						if remoteFile.isDeleted() {
 							results = append(results, DiffResult{
 								Result: DiffRemoteDeleted,
@@ -491,17 +532,17 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 		var iFile string
 		iResult := results[i]
 		if iResult.Local != nil {
-			iFile = iResult.Local.Path
+			iFile = iResult.Local.Path()
 		} else {
-			iFile = iResult.Remote.Path
+			iFile = iResult.Remote.Path()
 		}
 
 		var jFile string
 		jResult := results[j]
 		if jResult.Local != nil {
-			jFile = jResult.Local.Path
+			jFile = jResult.Local.Path()
 		} else {
-			jFile = jResult.Remote.Path
+			jFile = jResult.Remote.Path()
 		}
 
 		return iFile < jFile

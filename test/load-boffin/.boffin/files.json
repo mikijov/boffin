@@ -3,16 +3,15 @@
     "base-dir": "..",
     "files": [
       {
-        "path": "dir/file.ext",
-        "time": "2006-01-02T15:04:05Z",
-        "size": 12345,
-        "checksum": "aabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz",
         "history": [
           {
+            "path": "dir/file.ext",
             "event": "deleted",
             "time": "2006-01-01T15:04:05Z"
           },
           {
+            "path": "dir/file.ext",
+            "size": 12345,
             "event": "changed",
             "time": "2006-01-02T15:04:05Z",
             "checksum": "aabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz"

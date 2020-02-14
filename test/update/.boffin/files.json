@@ -3,12 +3,10 @@
     "base-dir": "..",
     "files": [
       {
-        "path": "file1.ext",
-        "size": 10,
-        "time": "2020-02-06T13:56:51.571756332Z",
-        "checksum": "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrI=",
         "history": [
           {
+            "path": "file1.ext",
+            "size": 10,
             "event": "changed",
             "time": "2020-02-06T13:56:51.571756332Z",
             "checksum": "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrI="
@@ -16,12 +14,10 @@
         ]
       },
       {
-        "path": "sub1/file2.ext",
-        "size": 10,
-        "time": "2020-02-06T13:57:02.90203166Z",
-        "checksum": "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
         "history": [
           {
+            "path": "sub1/file2.ext",
+            "size": 10,
             "event": "changed",
             "time": "2020-02-06T13:57:02.90203166Z",
             "checksum": "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE="
@@ -29,12 +25,10 @@
         ]
       },
       {
-        "path": "sub1/file3.ext",
-        "size": 10,
-        "time": "2020-02-06T13:57:12.378926011Z",
-        "checksum": "4PFd3bElTqFi8wvTlY2eRK6sJo65UivdK95nd7it5h4=",
         "history": [
           {
+            "path": "sub1/file3.ext",
+            "size": 10,
             "event": "changed",
             "time": "2020-02-06T13:57:12.378926011Z",
             "checksum": "4PFd3bElTqFi8wvTlY2eRK6sJo65UivdK95nd7it5h4="
@@ -42,12 +36,10 @@
         ]
       },
       {
-        "path": "sub1/file4.ext",
-        "size": 10,
-        "time": "2020-02-06T13:59:21.099018324Z",
-        "checksum": "71JuQzM1k9ZV2tMnnhemjf+FUfbEEs8YS170IORPpA4=",
         "history": [
           {
+            "path": "sub1/file4.ext",
+            "size": 10,
             "event": "changed",
             "time": "2020-02-06T13:59:21.099018324Z",
             "checksum": "71JuQzM1k9ZV2tMnnhemjf+FUfbEEs8YS170IORPpA4="
