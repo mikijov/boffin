@@ -62,23 +62,23 @@ var diffCmd = &cobra.Command{
 
 		for _, diff := range local.Diff2(remote) {
 			if diff.Result == lib.DiffEqual {
-				fmt.Printf("=:%s\n", diff.Local.Path)
+				fmt.Printf("=:%s\n", diff.Local.Path())
 			} else if diff.Result == lib.DiffLocalAdded {
-				fmt.Printf("L:%s\n", diff.Local.Path)
+				fmt.Printf("L:%s\n", diff.Local.Path())
 			} else if diff.Result == lib.DiffRemoteAdded {
-				fmt.Printf("R:%s\n", diff.Remote.Path)
+				fmt.Printf("R:%s\n", diff.Remote.Path())
 			} else if diff.Result == lib.DiffLocalDeleted {
-				fmt.Printf("+:%s\n", diff.Local.Path)
+				fmt.Printf("+:%s\n", diff.Local.Path())
 			} else if diff.Result == lib.DiffRemoteAdded {
-				fmt.Printf("-:%s\n", diff.Local.Path)
+				fmt.Printf("-:%s\n", diff.Local.Path())
 			} else if diff.Result == lib.DiffLocalChanged {
-				fmt.Printf(">:%s\n", diff.Local.Path)
+				fmt.Printf(">:%s\n", diff.Local.Path())
 			} else if diff.Result == lib.DiffRemoteChanged {
-				fmt.Printf("<:%s\n", diff.Local.Path)
+				fmt.Printf("<:%s\n", diff.Local.Path())
 			} else if diff.Result == lib.DiffConflict {
-				fmt.Printf("~:%s\n", diff.Local.Path)
+				fmt.Printf("~:%s\n", diff.Local.Path())
 			} else {
-				fmt.Printf("~:%s\n", diff.Local.Path)
+				fmt.Printf("~:%s\n", diff.Local.Path())
 			}
 		}
 	},

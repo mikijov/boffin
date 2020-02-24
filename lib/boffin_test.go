@@ -77,6 +77,7 @@ func TestLoadBoffin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	boffin.Sort()
 
 	files := boffin.GetFiles()
 	if len(files) != 1 {
@@ -157,6 +158,7 @@ func TestUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	boffin.Sort()
 
 	expected := []*FileInfo{
 		{
@@ -660,6 +662,157 @@ func TestDiff(t *testing.T) {
 
 	if diff := cmp.Diff(expected, actual, opt1, opt2); diff != "" {
 		t.Errorf("Diff:\n%s", diff)
+	}
+}
+
+func TestUpdate2(t *testing.T) {
+	dir := filepath.Join(getTestDir(), "update2", ".boffin")
+
+	boffin, err := LoadBoffin(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = boffin.Update2()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	boffin.Sort()
+
+	expected := []*FileInfo{
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "equal.ext",
+					Size:     10,
+					Type:     "changed",
+					Time:     parseTime("2020-02-06T13:56:51.571756332Z"),
+					Checksum: "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrI=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "sub1/cross-rename-1.ext",
+					Size:     19,
+					Type:     "changed",
+					Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
+					Checksum: "Iag4g9z39+jJOdVGxqCNXziaAFwFZ8dnfdMrZQz1qKM=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "sub1/cross-rename-2.ext",
+					Size:     19,
+					Type:     "changed",
+					Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
+					Checksum: "K1L3GOGZF5wiOtiJdkN6+xZiAKwG77ueF+KnMyCXAuI=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "sub1/deleted.ext",
+					Size:     10,
+					Type:     "changed",
+					Time:     parseTime("2020-02-06T13:59:21.099018324Z"),
+					Checksum: "71JuQzM1k9ZV2tMnnhemjf+FUfbEEs8YS170IORPpA4=",
+				},
+				&FileEvent{
+					Path: "sub1/deleted.ext",
+					Type: "deleted",
+					Time: time.Now(),
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "sub1/equal.ext",
+					Size:     10,
+					Type:     "changed",
+					Time:     parseTime("2020-02-06T13:57:02.90203166Z"),
+					Checksum: "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "sub1/new.ext",
+					Size:     10,
+					Type:     "changed",
+					Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+					Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "sub1/renamed-before.ext",
+					Size:     10,
+					Type:     "changed",
+					Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
+					Checksum: "4PFd3bElTqFi8wvTlY2eRK6sJo65UivdK95nd7it5h4=",
+				},
+				&FileEvent{
+					Path:     "sub1/renamed-after.ext",
+					Size:     10,
+					Type:     "changed",
+					Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
+					Checksum: "4PFd3bElTqFi8wvTlY2eRK6sJo65UivdK95nd7it5h4=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "sub1/move-rename-before.ext",
+					Size:     16,
+					Type:     "changed",
+					Time:     parseTime("2020-02-05T13:57:12.378926011Z"),
+					Checksum: "Ir6w9XOc7mlfgjFEhsjZAdhiqNosCRCf9iqzt3o7ndY=",
+				},
+				&FileEvent{
+					Path:     "sub2/move-rename.ext",
+					Size:     16,
+					Type:     "changed",
+					Time:     parseTime("2020-02-24T22:13:19.928956641Z"),
+					Checksum: "Ir6w9XOc7mlfgjFEhsjZAdhiqNosCRCf9iqzt3o7ndY=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "sub1/moved.ext",
+					Size:     10,
+					Type:     "changed",
+					Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
+					Checksum: "xP4lKAtsUEfiZZ+Z4wlwZ3yFIxq8w7PPdIBvNBzZhd4=",
+				},
+				&FileEvent{
+					Path:     "sub2/moved.ext",
+					Size:     10,
+					Type:     "changed",
+					Time:     parseTime("2020-02-24T22:12:52.881410206Z"),
+					Checksum: "xP4lKAtsUEfiZZ+Z4wlwZ3yFIxq8w7PPdIBvNBzZhd4=",
+				},
+			},
+		},
+	}
+	actual := boffin.GetFiles()
+
+	margin, _ := time.ParseDuration("2s")
+	opt1 := cmpopts.EquateApproxTime(margin)
+	opt2 := cmpopts.IgnoreUnexported(FileInfo{})
+
+	if diff := cmp.Diff(expected, actual, opt1, opt2); diff != "" {
+		t.Errorf("file.History:\n%s", diff)
 	}
 }
 

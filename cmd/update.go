@@ -46,7 +46,7 @@ var updateCmd = &cobra.Command{
 			fmt.Printf("ERROR: %v\n", err)
 			os.Exit(1)
 		}
-		if err = boffin.Update(); err != nil {
+		if err = boffin.Update2(); err != nil {
 			fmt.Printf("ERROR: %v\n", err)
 			os.Exit(1)
 		}

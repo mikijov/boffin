@@ -60,12 +60,16 @@ type Boffin interface {
 	GetImportDir() string
 
 	Save() error
+	Sort()
 	Update() error
+	Update2() error
 	Diff(other Boffin) []DiffResult
 	Diff2(remote Boffin) []DiffResult
 }
 
+// Checksum ...
 func (fi *FileInfo) Checksum() string {
+	// return fi.History[len(fi.History)-1].Checksum
 	for i := range fi.History {
 		event := fi.History[len(fi.History)-1-i]
 		if event.Checksum != "" {
@@ -75,6 +79,7 @@ func (fi *FileInfo) Checksum() string {
 	return ""
 }
 
+// Path ...
 func (fi *FileInfo) Path() string {
 	for i := range fi.History {
 		event := fi.History[len(fi.History)-1-i]
@@ -85,6 +90,7 @@ func (fi *FileInfo) Path() string {
 	return ""
 }
 
+// Size ...
 func (fi *FileInfo) Size() int64 {
 	for i := range fi.History {
 		event := fi.History[len(fi.History)-1-i]
@@ -95,6 +101,7 @@ func (fi *FileInfo) Size() int64 {
 	return 0
 }
 
+// Time ...
 func (fi *FileInfo) Time() time.Time {
 	for i := range fi.History {
 		event := fi.History[len(fi.History)-1-i]
@@ -123,7 +130,6 @@ func (fi *FileInfo) inheritsFrom(checksum string) bool {
 
 func (fi *FileInfo) markDeleted() {
 	if !fi.isDeleted() {
-
 		fi.History = append(fi.History, &FileEvent{
 			Path: fi.Path(),
 			Type: deleted,
@@ -157,13 +163,15 @@ func (fi *FileInfo) update(path, relPath string, info os.FileInfo) error {
 	hashStr := base64.StdEncoding.EncodeToString(hash.Sum(nil))
 	// fmt.Printf("Hash: %s\n", hashStr)
 
-	fi.History = append(fi.History, &FileEvent{
-		Path:     relPath,
-		Size:     info.Size(),
-		Type:     changed,
-		Time:     info.ModTime().UTC(),
-		Checksum: hashStr,
-	})
+	if len(fi.History) == 0 || hashStr != fi.History[len(fi.History)-1].Checksum {
+		fi.History = append(fi.History, &FileEvent{
+			Path:     relPath,
+			Size:     info.Size(),
+			Type:     changed,
+			Time:     info.ModTime().UTC(),
+			Checksum: hashStr,
+		})
+	}
 
 	return nil
 }
@@ -202,11 +210,36 @@ func (db *db) GetFiles() []*FileInfo {
 	return db.files
 }
 
-func sliceToMap(files []*FileInfo) map[string]*FileInfo {
+func (db *db) Sort() {
+	sort.Slice(db.files, func(i, j int) bool {
+		return db.files[i].Path() < db.files[j].Path()
+	})
+}
+
+func filesToPathMap(files []*FileInfo) map[string]*FileInfo {
 	fileMap := make(map[string]*FileInfo)
 
 	for _, file := range files {
-		fileMap[file.Path()] = file
+		if !file.isDeleted() {
+			fileMap[file.Path()] = file
+		}
+	}
+
+	return fileMap
+}
+
+func filesToHashMap(files []*FileInfo) map[string][]*FileInfo {
+	fileMap := make(map[string][]*FileInfo)
+
+	for _, file := range files {
+		if !file.isDeleted() {
+			fi, found := fileMap[file.Checksum()]
+			if found {
+				fileMap[file.Checksum()] = append(fi, file)
+			} else {
+				fileMap[file.Checksum()] = []*FileInfo{file}
+			}
+		}
 	}
 
 	return fileMap
@@ -225,13 +258,12 @@ func (db *db) Update() error {
 	}
 
 	// TODO: consider if this should deep copy if object should stay unchanged on error
-	fileMap := sliceToMap(db.files)
+	fileMap := filesToPathMap(db.files)
 
 	// fmt.Printf("walking %s\n", dir)
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			fmt.Printf("%s: error getting file info: %s\n", path, err)
-			return nil
+			return fmt.Errorf("%s: error getting file info: %s", path, err)
 		}
 		if info.IsDir() {
 			if info.Name() == defaultDbDir { // skip DB directory
@@ -276,6 +308,357 @@ func (db *db) Update() error {
 	return nil
 }
 
+type toCheck struct {
+	path    string
+	relPath string
+	fi      os.FileInfo
+	hash    string
+	matched bool // TODO: remove after debugging
+}
+
+func (db *db) Update2() error {
+	dir := db.GetBaseDir()
+
+	info, err := os.Stat(dir)
+	if err != nil {
+		return fmt.Errorf("base directory '%s' does not exist", dir)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("base directory '%s' is not a directory", dir)
+	}
+
+	// TODO: can you optimise this into another loop?
+	for _, localFile := range db.files {
+		localFile.checked = false
+	}
+
+	filesByPath := filesToPathMap(db.files)
+	filesByHash := filesToHashMap(db.files)
+
+	filesToCheck := []*toCheck{}
+
+	// # get list of files that should be checked
+	// - for each file on the file system
+	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return fmt.Errorf("%s: error getting file info: %s", path, err)
+		}
+		if info.IsDir() {
+			if info.Name() == defaultDbDir { // skip DB directory
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		root := path[:len(dir)]
+		if dir != root {
+			// this should never happen
+			return fmt.Errorf("unexpected error; root mismatch '%s' != '%s'", dir, root)
+		}
+
+		relPath := path[len(dir)+1:]
+
+		//   - if the path matches exactly
+		//     - if forced check or if size/date changed
+		//       - put file in to-be-checked list
+		//     - else
+		//       - mark checked
+		//   - else
+		//     - put file in to-be-checked list
+		localFile, ok := filesByPath[relPath]
+		if !ok {
+			filesToCheck = append(filesToCheck, &toCheck{
+				path:    path,
+				relPath: relPath,
+				fi:      info,
+			})
+		} else if localFile.isDeleted() {
+			filesToCheck = append(filesToCheck, &toCheck{
+				path:    path,
+				relPath: relPath,
+				fi:      info,
+			})
+		} else if info.Size() != localFile.Size() || !info.ModTime().Equal(localFile.Time()) {
+			filesToCheck = append(filesToCheck, &toCheck{
+				path:    path,
+				relPath: relPath,
+				fi:      info,
+			})
+		} else {
+			localFile.checked = true
+			fmt.Printf("=%s\n", localFile.Path())
+			delete(filesByPath, relPath)
+		}
+
+		return nil
+	})
+
+	// # bulk calculate checksums
+	// - for each file in the to-be-checked list
+	//   - calculate checksum
+	//   - put checksum in the 'updates' map[hash][]result
+
+	updates := make(map[string][]*toCheck)
+
+	for _, f := range filesToCheck {
+		file, err := os.Open(f.path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		hash := sha256.New()
+		if _, err := io.Copy(hash, file); err != nil {
+			return err
+		}
+
+		f.hash = base64.StdEncoding.EncodeToString(hash.Sum(nil))
+		fmt.Printf("%s:%s\n", f.relPath, f.hash)
+
+		hashes, found := updates[f.hash]
+		if found {
+			updates[f.hash] = append(hashes, f)
+		} else {
+			updates[f.hash] = []*toCheck{f}
+		}
+	}
+
+	// # match everything you can using hashes
+	// - for each update
+	for hash, results := range updates {
+		//   - get current files with matching hashes
+		localFiles, found := filesByHash[hash]
+		if found {
+			// # prioritize matching of files with same meta data
+			//   - for each current file in matching hashes
+			//     - for each result in update
+			//       - if whole path for existing file and result matches
+			//         - mark as unchanged
+			//         - mark existing file as checked
+			//         - remove existing file from matching hashes
+			//         - remove result from update
+			lcount := 0
+			for _, localFile := range localFiles {
+				if localFile.checked {
+					panic("this should never happen")
+				}
+				localFiles[lcount] = localFile
+				lcount++
+				rcount := 0
+				for _, result := range results {
+					if result.matched {
+						panic("this should never happen")
+					}
+					if localFile.Path() == result.relPath {
+						localFile.checked = true
+						result.matched = true
+						lcount-- // effectively undo the localFiles[lcount] = localFile
+						fmt.Printf("=%s\n", localFile.Path())
+						break
+					} else {
+						results[rcount] = result
+						rcount++
+					}
+				}
+				results = results[:rcount]
+			}
+			localFiles = localFiles[:lcount]
+
+			// # prioritize matching of files with same name, i.e. moved files
+			//   - for each current file in matching hashes
+			//     - for each result in update
+			//       - if filename for existing file and result matches
+			//         - mark as moved
+			//         - mark existing file as checked
+			//         - remove existing file from matching hashes
+			//         - remove result from update
+			lcount = 0
+			for _, localFile := range localFiles {
+				if localFile.checked {
+					panic("this should never happen")
+				}
+				localFiles[lcount] = localFile
+				lcount++
+				rcount := 0
+				for _, result := range results {
+					if result.matched {
+						panic("this should never happen")
+					}
+					if filepath.Base(localFile.Path()) == filepath.Base(result.relPath) {
+						localFile.checked = true
+						result.matched = true
+						lcount-- // effectively undo the localFiles[lcount] = localFile
+						fmt.Printf("~%s => %s\n", localFile.Path(), result.relPath)
+						localFile.History = append(localFile.History, &FileEvent{
+							Type:     changed,
+							Path:     result.relPath,
+							Time:     result.fi.ModTime(),
+							Size:     result.fi.Size(),
+							Checksum: result.hash,
+						})
+						break
+					} else {
+						results[rcount] = result
+						rcount++
+					}
+				}
+				results = results[:rcount]
+			}
+			localFiles = localFiles[:lcount]
+
+			// # simple case of file being renamed
+			//   - if only one file in matching hashes and one result in updates
+			//     - mark as moved
+			//     - mark existing file as checked
+			//     - remove existing file from matching hashes
+			//     - remove result from update
+			if len(localFiles) == 1 && len(results) == 1 {
+				localFile := localFiles[0]
+				result := results[0]
+				if localFile.checked || result.matched {
+					panic("this should never happen")
+				}
+				fmt.Printf("~%s => %s\n", localFile.Path(), result.relPath)
+				localFile.History = append(localFile.History, &FileEvent{
+					Type:     changed,
+					Path:     result.relPath,
+					Time:     result.fi.ModTime(),
+					Size:     result.fi.Size(),
+					Checksum: result.hash,
+				})
+				localFile.checked = true
+				result.matched = true
+
+				localFiles = localFiles[:0]
+				results = results[:0]
+			}
+
+			//   - if only updates remain
+			if len(localFiles) == 0 && len(results) > 0 {
+				//     - for every result in updates
+				//       - mark as new
+				//       - remove result from update
+				for _, result := range results {
+					if result.matched {
+						panic("this should never happen")
+					}
+					result.matched = true
+					fmt.Printf("+%s\n", result.relPath)
+
+					db.files = append(db.files, &FileInfo{
+						History: []*FileEvent{
+							&FileEvent{
+								Type:     changed,
+								Path:     result.relPath,
+								Time:     result.fi.ModTime(),
+								Size:     result.fi.Size(),
+								Checksum: result.hash,
+							},
+						},
+						checked: true, // new files are automatically checked
+					})
+				}
+				results = results[:0]
+			} else {
+				//   - else
+				//     - for every result in updates
+				//       - mark as conflict
+				//       - remove result from update
+				for _, result := range results {
+					if result.matched {
+						panic("this should never happen")
+					}
+					result.matched = true
+					fmt.Printf("!%s\n", result.relPath)
+					// TODO: is it safe to continue here?
+				}
+				results = results[:0]
+				//     - for every current file in matching hashes
+				//       - mark as conflict
+				for _, localFile := range localFiles {
+					if localFile.checked {
+						panic("this should never happen")
+					}
+					localFile.checked = true
+					fmt.Printf("!%s\n", localFile.Path())
+					// TODO: is it safe to continue here?
+				}
+				localFiles = localFiles[:0]
+			}
+			// skip len(localFiles) > 0 && len(results) == 0 as deletes will be handled below
+		} // found
+
+		// update map with only unprocessed results
+		updates[hash] = results
+
+		// no need to update filesByHash with updated localFiles as filesByHash is not used any more
+	}
+
+	// regenerate filesByPath to account for any files matched by hash, i.e. moved
+	filesByPath = filesToPathMap(db.files)
+
+	// # match everything you can using paths
+	// - for each update
+	//   - if existing file exists with the same path
+	//     - mark as changed
+	//     - mark as checked
+	//   - else
+	//     - mark as new
+	for _, results := range updates {
+		for _, result := range results {
+			if result.matched {
+				panic("this should never happen")
+			}
+			localFile, found := filesByPath[result.relPath]
+			if found {
+				if localFile.checked {
+					panic("this should never happen")
+				}
+				fmt.Printf("~%s\n", localFile.Path())
+				localFile.checked = true
+				localFile.History = append(localFile.History, &FileEvent{
+					Type:     changed,
+					Path:     result.relPath,
+					Time:     result.fi.ModTime(),
+					Size:     result.fi.Size(),
+					Checksum: result.hash,
+				})
+			} else {
+				fmt.Printf("+%s\n", result.relPath)
+				db.files = append(db.files, &FileInfo{
+					History: []*FileEvent{
+						&FileEvent{
+							Type:     changed,
+							Path:     result.relPath,
+							Time:     result.fi.ModTime(),
+							Size:     result.fi.Size(),
+							Checksum: result.hash,
+						},
+					},
+					checked: true, // new files are automatically checked
+				})
+			}
+		}
+	}
+
+	// every update has been addressed by now
+
+	// # any file not checked means it was deleted
+	// - for each existing file
+	//   - if not checked
+	//     - mark as deleted
+	//     - mark as checked
+	for _, localFile := range db.files {
+		if !localFile.checked && !localFile.isDeleted() {
+			localFile.checked = true
+			fmt.Printf("-%s\n", localFile.Path())
+			localFile.markDeleted()
+		}
+	}
+
+	return nil
+}
+
 const (
 	// DiffEqual indicates that files in both repositories are identical.
 	DiffEqual = iota
@@ -307,12 +690,8 @@ func (db *db) Diff(other Boffin) []DiffResult {
 	otherFiles := other.GetFiles()
 
 	// sort both file lists so that we can perform merge
-	sort.Slice(db.files, func(i, j int) bool {
-		return db.files[i].Path() < db.files[j].Path()
-	})
-	sort.Slice(otherFiles, func(i, j int) bool {
-		return otherFiles[i].Path() < otherFiles[j].Path()
-	})
+	db.Sort()
+	other.Sort()
 
 	// allocate for the worst case
 	results := make([]DiffResult, 0, len(db.files)+len(otherFiles))
