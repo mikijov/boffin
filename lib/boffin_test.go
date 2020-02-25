@@ -227,6 +227,7 @@ func TestUpdate(t *testing.T) {
 	margin, _ := time.ParseDuration("2s")
 	opt1 := cmpopts.EquateApproxTime(margin)
 	opt2 := cmpopts.IgnoreUnexported(FileInfo{})
+	// opt3 := cmpopts.IgnoreFields(FileEvent{}, "Time")
 
 	if diff := cmp.Diff(expected, actual, opt1, opt2); diff != "" {
 		t.Errorf("file.History:\n%s", diff)
@@ -659,6 +660,7 @@ func TestDiff(t *testing.T) {
 	margin, _ := time.ParseDuration("2s")
 	opt1 := cmpopts.EquateApproxTime(margin)
 	opt2 := cmpopts.IgnoreUnexported(FileInfo{})
+	// opt3 := cmpopts.IgnoreFields(FileEvent{}, "Time")
 
 	if diff := cmp.Diff(expected, actual, opt1, opt2); diff != "" {
 		t.Errorf("Diff:\n%s", diff)
@@ -693,10 +695,17 @@ func TestUpdate2(t *testing.T) {
 		{
 			History: []*FileEvent{
 				&FileEvent{
-					Path:     "sub1/cross-rename-1.ext",
+					Path:     "sub1/cross-rename-2.ext",
 					Size:     19,
 					Type:     "changed",
 					Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
+					Checksum: "Iag4g9z39+jJOdVGxqCNXziaAFwFZ8dnfdMrZQz1qKM=",
+				},
+				&FileEvent{
+					Path:     "sub1/cross-rename-1.ext",
+					Size:     19,
+					Type:     "changed",
+					Time:     parseTime("2020-02-25T04:19:14.250535938Z"),
 					Checksum: "Iag4g9z39+jJOdVGxqCNXziaAFwFZ8dnfdMrZQz1qKM=",
 				},
 			},
@@ -704,10 +713,17 @@ func TestUpdate2(t *testing.T) {
 		{
 			History: []*FileEvent{
 				&FileEvent{
-					Path:     "sub1/cross-rename-2.ext",
+					Path:     "sub1/cross-rename-1.ext",
 					Size:     19,
 					Type:     "changed",
 					Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
+					Checksum: "K1L3GOGZF5wiOtiJdkN6+xZiAKwG77ueF+KnMyCXAuI=",
+				},
+				&FileEvent{
+					Path:     "sub1/cross-rename-2.ext",
+					Size:     19,
+					Type:     "changed",
+					Time:     parseTime("2020-02-25T04:19:14.250535938Z"),
 					Checksum: "K1L3GOGZF5wiOtiJdkN6+xZiAKwG77ueF+KnMyCXAuI=",
 				},
 			},
@@ -745,7 +761,7 @@ func TestUpdate2(t *testing.T) {
 					Path:     "sub1/new.ext",
 					Size:     10,
 					Type:     "changed",
-					Time:     parseTime("2020-02-07T21:01:11.11974727Z"),
+					Time:     parseTime("2020-02-25T04:19:14.250535938Z"),
 					Checksum: "Z12qAGMLMXMmfBWqZw8LHTJD2Ifpp8AMJYmCa4eMYac=",
 				},
 			},
@@ -763,7 +779,7 @@ func TestUpdate2(t *testing.T) {
 					Path:     "sub1/renamed-after.ext",
 					Size:     10,
 					Type:     "changed",
-					Time:     parseTime("2020-02-06T13:57:12.378926011Z"),
+					Time:     parseTime("2020-02-25T04:19:14.250535938Z"),
 					Checksum: "4PFd3bElTqFi8wvTlY2eRK6sJo65UivdK95nd7it5h4=",
 				},
 			},
@@ -781,7 +797,7 @@ func TestUpdate2(t *testing.T) {
 					Path:     "sub2/move-rename.ext",
 					Size:     16,
 					Type:     "changed",
-					Time:     parseTime("2020-02-24T22:13:19.928956641Z"),
+					Time:     parseTime("2020-02-25T04:19:14.250535938Z"),
 					Checksum: "Ir6w9XOc7mlfgjFEhsjZAdhiqNosCRCf9iqzt3o7ndY=",
 				},
 			},
@@ -799,7 +815,7 @@ func TestUpdate2(t *testing.T) {
 					Path:     "sub2/moved.ext",
 					Size:     10,
 					Type:     "changed",
-					Time:     parseTime("2020-02-24T22:12:52.881410206Z"),
+					Time:     parseTime("2020-02-25T04:19:14.250535938Z"),
 					Checksum: "xP4lKAtsUEfiZZ+Z4wlwZ3yFIxq8w7PPdIBvNBzZhd4=",
 				},
 			},
@@ -810,6 +826,7 @@ func TestUpdate2(t *testing.T) {
 	margin, _ := time.ParseDuration("2s")
 	opt1 := cmpopts.EquateApproxTime(margin)
 	opt2 := cmpopts.IgnoreUnexported(FileInfo{})
+	// opt3 := cmpopts.IgnoreFields(FileEvent{}, "Time")
 
 	if diff := cmp.Diff(expected, actual, opt1, opt2); diff != "" {
 		t.Errorf("file.History:\n%s", diff)
@@ -1270,6 +1287,7 @@ func TestDiff2(t *testing.T) {
 	margin, _ := time.ParseDuration("2s")
 	opt1 := cmpopts.EquateApproxTime(margin)
 	opt2 := cmpopts.IgnoreUnexported(FileInfo{})
+	// opt3 := cmpopts.IgnoreFields(FileEvent{}, "Time")
 
 	if diff := cmp.Diff(expected, actual, opt1, opt2); diff != "" {
 		t.Errorf("Diff2:\n%s", diff)
