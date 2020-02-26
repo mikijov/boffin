@@ -220,7 +220,7 @@ func filesToPathMap(files []*FileInfo) map[string]*FileInfo {
 	fileMap := make(map[string]*FileInfo)
 
 	for _, file := range files {
-		if !file.isDeleted() {
+		if !file.checked && !file.isDeleted() {
 			fileMap[file.Path()] = file
 		}
 	}
@@ -232,7 +232,7 @@ func filesToHashMap(files []*FileInfo) map[string][]*FileInfo {
 	fileMap := make(map[string][]*FileInfo)
 
 	for _, file := range files {
-		if !file.isDeleted() {
+		if !file.checked && !file.isDeleted() {
 			fi, found := fileMap[file.Checksum()]
 			if found {
 				fileMap[file.Checksum()] = append(fi, file)
@@ -333,7 +333,6 @@ func (db *db) Update2() error {
 	}
 
 	filesByPath := filesToPathMap(db.files)
-	filesByHash := filesToHashMap(db.files)
 
 	filesToCheck := []*toCheck{}
 
@@ -423,11 +422,23 @@ func (db *db) Update2() error {
 		}
 	}
 
+	filesByHash := filesToHashMap(db.files)
+
 	// # match everything you can using hashes
 	// - for each update
 	for hash, results := range updates {
 		//   - get current files with matching hashes
 		localFiles, found := filesByHash[hash]
+		// fmt.Printf("checking %s\n", hash)
+		//
+		// fmt.Printf("results\n")
+		// for _, result := range results {
+		// 	fmt.Printf("  %s\n", result.relPath)
+		// }
+		// fmt.Printf("localFiles\n")
+		// for _, localFile := range localFiles {
+		// 	fmt.Printf("  %s\n", localFile.Path())
+		// }
 		if found {
 			// # prioritize matching of files with same meta data
 			//   - for each current file in matching hashes
@@ -438,31 +449,39 @@ func (db *db) Update2() error {
 			//         - remove existing file from matching hashes
 			//         - remove result from update
 			lcount := 0
+			// fmt.Printf("match by path\n")
 			for _, localFile := range localFiles {
 				if localFile.checked {
-					panic("this should never happen")
+					panic(fmt.Sprintf("this should never happen:1: %s", localFile.Path()))
 				}
 				localFiles[lcount] = localFile
 				lcount++
 				rcount := 0
 				for _, result := range results {
 					if result.matched {
-						panic("this should never happen")
+						panic("this should never happen:2:")
 					}
 					if localFile.Path() == result.relPath {
 						localFile.checked = true
 						result.matched = true
 						lcount-- // effectively undo the localFiles[lcount] = localFile
 						fmt.Printf("=%s\n", localFile.Path())
-						break
 					} else {
 						results[rcount] = result
 						rcount++
 					}
 				}
 				results = results[:rcount]
+				// fmt.Printf("results:1:\n")
+				// for _, result := range results {
+				// 	fmt.Printf("  %s\n", result.relPath)
+				// }
 			}
 			localFiles = localFiles[:lcount]
+			// fmt.Printf("localFiles:1:\n")
+			// for _, localFile := range localFiles {
+			// 	fmt.Printf("  %s\n", localFile.Path())
+			// }
 
 			// # prioritize matching of files with same name, i.e. moved files
 			//   - for each current file in matching hashes
@@ -473,16 +492,17 @@ func (db *db) Update2() error {
 			//         - remove existing file from matching hashes
 			//         - remove result from update
 			lcount = 0
+			// fmt.Printf("match by file name\n")
 			for _, localFile := range localFiles {
 				if localFile.checked {
-					panic("this should never happen")
+					panic("this should never happen:3:")
 				}
 				localFiles[lcount] = localFile
 				lcount++
 				rcount := 0
 				for _, result := range results {
 					if result.matched {
-						panic("this should never happen")
+						panic("this should never happen:4:")
 					}
 					if filepath.Base(localFile.Path()) == filepath.Base(result.relPath) {
 						localFile.checked = true
@@ -496,15 +516,22 @@ func (db *db) Update2() error {
 							Size:     result.fi.Size(),
 							Checksum: result.hash,
 						})
-						break
 					} else {
 						results[rcount] = result
 						rcount++
 					}
 				}
 				results = results[:rcount]
+				// fmt.Printf("results:2:\n")
+				// for _, result := range results {
+				// 	fmt.Printf("  %s\n", result.relPath)
+				// }
 			}
 			localFiles = localFiles[:lcount]
+			// fmt.Printf("localFiles:2:\n")
+			// for _, localFile := range localFiles {
+			// 	fmt.Printf("  %s\n", localFile.Path())
+			// }
 
 			// # simple case of file being renamed
 			//   - if only one file in matching hashes and one result in updates
@@ -512,11 +539,12 @@ func (db *db) Update2() error {
 			//     - mark existing file as checked
 			//     - remove existing file from matching hashes
 			//     - remove result from update
+			// fmt.Printf("single match\n")
 			if len(localFiles) == 1 && len(results) == 1 {
 				localFile := localFiles[0]
 				result := results[0]
 				if localFile.checked || result.matched {
-					panic("this should never happen")
+					panic("this should never happen:5:")
 				}
 				fmt.Printf("~%s => %s\n", localFile.Path(), result.relPath)
 				localFile.History = append(localFile.History, &FileEvent{
@@ -534,13 +562,14 @@ func (db *db) Update2() error {
 			}
 
 			//   - if only updates remain
+			// fmt.Printf("only updates\n")
 			if len(localFiles) == 0 && len(results) > 0 {
 				//     - for every result in updates
 				//       - mark as new
 				//       - remove result from update
 				for _, result := range results {
 					if result.matched {
-						panic("this should never happen")
+						panic("this should never happen:6:")
 					}
 					result.matched = true
 					fmt.Printf("+%s\n", result.relPath)
@@ -566,7 +595,7 @@ func (db *db) Update2() error {
 				//       - remove result from update
 				for _, result := range results {
 					if result.matched {
-						panic("this should never happen")
+						panic("this should never happen:7:")
 					}
 					result.matched = true
 					fmt.Printf("!%s\n", result.relPath)
@@ -577,7 +606,7 @@ func (db *db) Update2() error {
 				//       - mark as conflict
 				for _, localFile := range localFiles {
 					if localFile.checked {
-						panic("this should never happen")
+						panic("this should never happen:8:")
 					}
 					localFile.checked = true
 					fmt.Printf("!%s\n", localFile.Path())
@@ -604,15 +633,16 @@ func (db *db) Update2() error {
 	//     - mark as checked
 	//   - else
 	//     - mark as new
+	// fmt.Printf("match by path\n")
 	for _, results := range updates {
 		for _, result := range results {
 			if result.matched {
-				panic("this should never happen")
+				panic("this should never happen:9:")
 			}
 			localFile, found := filesByPath[result.relPath]
 			if found {
 				if localFile.checked {
-					panic("this should never happen")
+					panic("this should never happen:10:")
 				}
 				fmt.Printf("~%s\n", localFile.Path())
 				localFile.checked = true
@@ -648,6 +678,7 @@ func (db *db) Update2() error {
 	//   - if not checked
 	//     - mark as deleted
 	//     - mark as checked
+	// fmt.Printf("unchecked\n")
 	for _, localFile := range db.files {
 		if !localFile.checked && !localFile.isDeleted() {
 			localFile.checked = true

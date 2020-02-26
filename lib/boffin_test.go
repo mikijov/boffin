@@ -695,6 +695,94 @@ func TestUpdate2(t *testing.T) {
 		{
 			History: []*FileEvent{
 				&FileEvent{
+					Path:     "multi-hash/a-equal.ext",
+					Size:     30,
+					Type:     "changed",
+					Time:     parseTime("2020-02-25T14:03:45.270218079Z"),
+					Checksum: "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "multi-hash/changed.ext",
+					Size:     87,
+					Type:     "changed",
+					Time:     parseTime("2020-02-24T14:01:07.828877429Z"),
+					Checksum: "OfhhlgGfv8NbaPqLE6EGi2c9EJR8edzvXFnxl3QUvYo=",
+				},
+				&FileEvent{
+					Path:     "multi-hash/changed.ext",
+					Size:     87,
+					Type:     "changed",
+					Time:     parseTime("2020-02-25T14:01:07.828877429Z"),
+					Checksum: "ofhhlgGfv8NbaPqLE6EGi2c9EJR8edzvXFnxl3QUvYo=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "multi-hash/m-equal.ext",
+					Size:     30,
+					Type:     "changed",
+					Time:     parseTime("2020-02-25T14:03:57.917265752Z"),
+					Checksum: "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ=",
+				},
+			},
+			checked: true,
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "multi-hash/moved.ext",
+					Size:     30,
+					Type:     "changed",
+					Time:     parseTime("2020-02-25T14:02:41.831652522Z"),
+					Checksum: "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ=",
+				},
+				&FileEvent{
+					Path:     "multi-hash/moved/moved.ext",
+					Size:     30,
+					Type:     "changed",
+					Time:     parseTime("2020-02-25T14:02:41.831652522Z"),
+					Checksum: "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "multi-hash/renamed-before.ext",
+					Size:     30,
+					Type:     "changed",
+					Time:     parseTime("2020-02-25T14:03:45.270218079Z"),
+					Checksum: "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ=",
+				},
+				&FileEvent{
+					Path:     "multi-hash/renamed.ext",
+					Size:     30,
+					Type:     "changed",
+					Time:     parseTime("2020-02-25T14:03:45.270218079Z"),
+					Checksum: "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "multi-hash/z-equal.ext",
+					Size:     30,
+					Type:     "changed",
+					Time:     parseTime("2020-02-25T14:04:02.354066271Z"),
+					Checksum: "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
 					Path:     "sub1/cross-rename-2.ext",
 					Size:     19,
 					Type:     "changed",

@@ -16,6 +16,72 @@
       {
         "history": [
           {
+            "path": "multi-hash/a-equal.ext",
+            "size": 30,
+            "event": "changed",
+            "time": "2020-02-25T14:03:45.270218079Z",
+            "checksum": "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ="
+          }
+        ]
+      },
+      {
+        "history": [
+          {
+            "path": "multi-hash/changed.ext",
+            "size": 87,
+            "event": "changed",
+            "time": "2020-02-24T14:01:07.828877429Z",
+            "checksum": "OfhhlgGfv8NbaPqLE6EGi2c9EJR8edzvXFnxl3QUvYo="
+          }
+        ]
+      },
+      {
+        "history": [
+          {
+            "path": "multi-hash/m-equal.ext",
+            "size": 30,
+            "event": "changed",
+            "time": "2020-02-25T14:03:57.917265752Z",
+            "checksum": "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ="
+          }
+        ]
+      },
+      {
+        "history": [
+          {
+            "path":     "multi-hash/moved.ext",
+            "size":     30,
+            "event":     "changed",
+            "time":     "2020-02-25T14:02:41.831652522Z",
+            "checksum": "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ="
+          }
+        ]
+      },
+      {
+        "history": [
+          {
+            "path": "multi-hash/renamed-before.ext",
+            "size": 30,
+            "event": "changed",
+            "time": "2020-02-25T14:03:45.270218079Z",
+            "checksum": "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ="
+          }
+        ]
+      },
+      {
+        "history": [
+          {
+            "path": "multi-hash/z-equal.ext",
+            "size": 30,
+            "event": "changed",
+            "time": "2020-02-25T14:04:02.354066271Z",
+            "checksum": "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ="
+          }
+        ]
+      },
+      {
+        "history": [
+          {
             "path": "sub1/equal.ext",
             "size": 10,
             "event": "changed",
