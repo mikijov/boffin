@@ -19,8 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package cmd
 
 import (
-	"fmt"
-	"os"
+	"log"
 
 	"github.com/mikijov/boffin/lib"
 	"github.com/spf13/cobra"
@@ -29,7 +28,7 @@ import (
 // updateCmd represents the update command
 var updateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Update repository with meta-data for any changed files.",
+	Short: "Look for changed files and update repository with any changes.",
 	Long: `Update looks for any added, removed or changed files in the
 	repository and updates meta-data correspondingly. By default, only if file
 	size or modification timestamp are changed will the file checksum be checked.`,
@@ -37,22 +36,18 @@ var updateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		dbDir, err := lib.FindBoffinDir(dbDirFlag)
 		if err != nil {
-			fmt.Printf("ERROR: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("ERROR: %v\n", err)
 		}
 
 		boffin, err := lib.LoadBoffin(dbDir)
 		if err != nil {
-			fmt.Printf("ERROR: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("ERROR: %v\n", err)
 		}
 		if err = boffin.Update2(); err != nil {
-			fmt.Printf("ERROR: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("ERROR: %v\n", err)
 		}
 		if err = boffin.Save(); err != nil {
-			fmt.Printf("ERROR: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("ERROR: %v\n", err)
 		}
 	},
 }

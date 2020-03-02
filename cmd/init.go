@@ -19,8 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package cmd
 
 import (
-	"fmt"
-	"os"
+	"log"
 
 	"github.com/mikijov/boffin/lib"
 	"github.com/spf13/cobra"
@@ -29,9 +28,9 @@ import (
 // initCmd represents the init command
 var initCmd = &cobra.Command{
 	Use:   "init <base-dir>",
-	Short: "Create new Boffin repository.",
-	Long: `Create new and empty Boffin repository. Unless there are no files in
-	the directory, it should be almost always followed by 'update'.`,
+	Short: "Create new repository.",
+	Long: `Create new and empty repository. Unless there are no files in the
+	directory, it should be almost always followed by 'update'.`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		baseDir := args[0]
@@ -45,8 +44,7 @@ var initCmd = &cobra.Command{
 
 		_, err := lib.InitDbDir(dbDir, baseDir)
 		if err != nil {
-			fmt.Printf("ERROR: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("ERROR: %v\n", err)
 		}
 	},
 }

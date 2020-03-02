@@ -1,6 +1,5 @@
 /*
 Copyright (C) 2019 Milutin Jovanvović
-
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
@@ -21,7 +20,9 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/mikijov/boffin/lib"
 	"github.com/spf13/cobra"
@@ -39,54 +40,72 @@ var importCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		dbDir, err := lib.FindBoffinDir(dbDirFlag)
 		if err != nil {
-			fmt.Printf("ERROR: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("ERROR: %v\n", err)
 		}
-		dest, err := lib.LoadBoffin(dbDir)
+		local, err := lib.LoadBoffin(dbDir)
 		if err != nil {
-			fmt.Printf("ERROR: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("ERROR: %v\n", err)
 		}
 
 		dbDir, err = lib.FindBoffinDir(args[0])
 		if err != nil {
-			fmt.Printf("ERROR: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("ERROR: %v\n", err)
 		}
-		source, err := lib.LoadBoffin(dbDir)
+		remote, err := lib.LoadBoffin(dbDir)
 		if err != nil {
-			fmt.Printf("ERROR: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("ERROR: %v\n", err)
 		}
 
-		for _, diff := range dest.Diff(source) {
+		exit := 0
+
+		for _, diff := range local.Diff2(remote) {
 			if diff.Result == lib.DiffEqual {
 				// fmt.Printf("=:%s\n", diff.Local.Path())
 			} else if diff.Result == lib.DiffLocalAdded {
-				fmt.Printf("%s: copy new file\n", diff.Local.Path())
+				// fmt.Printf("L:%s\n", diff.Local.Path())
 			} else if diff.Result == lib.DiffRemoteAdded {
-				// fmt.Printf("R:%s\n", diff.Remote.Path())
+				fmt.Printf("R:%s\n", diff.Remote.Path())
+
+				src := filepath.Join(remote.GetBaseDir(), diff.Remote.Path())
+				dest := filepath.Join(local.GetImportDir(), diff.Remote.Path())
+
+				if err := copyFile(src, dest); err != nil {
+					exit = 1
+					break
+				}
 			} else if diff.Result == lib.DiffLocalDeleted {
 				// fmt.Printf("+:%s\n", diff.Local.Path())
-			} else if diff.Result == lib.DiffRemoteAdded {
+			} else if diff.Result == lib.DiffRemoteDeleted {
 				// fmt.Printf("-:%s\n", diff.Local.Path())
 			} else if diff.Result == lib.DiffLocalChanged {
-				fmt.Printf("%s: copy changed file\n", diff.Local.Path())
-			} else if diff.Result == lib.DiffRemoteChanged {
 				// fmt.Printf("<:%s\n", diff.Local.Path())
+			} else if diff.Result == lib.DiffRemoteChanged {
+				fmt.Printf(">:%s\n", diff.Local.Path())
+
+				src := filepath.Join(remote.GetBaseDir(), diff.Remote.Path())
+				dest := filepath.Join(local.GetBaseDir(), diff.Local.Path())
+
+				if err := copyFile(src, dest); err != nil {
+					exit = 1
+					break
+				}
 			} else if diff.Result == lib.DiffConflict {
-				fmt.Printf("%s: conflict\n", diff.Local.Path())
+				fmt.Printf("!:%s\n", diff.Local.Path())
+				exit = 2
 			} else {
-				panic("unexpected result")
+				fmt.Printf("?:%s\n", diff.Local.Path())
+				exit = 2
 			}
 		}
+
+		os.Exit(exit)
 	},
 }
 
-// Copy the src file to dst. Any existing file will be overwritten and will not
+// Copy the src file to dest. Any existing file will be overwritten and will not
 // copy file attributes.
-func copyFile(src, dst string) error {
-	fmt.Printf("%s => %s\n", src, dst)
+func copyFile(src, dest string) error {
+	fmt.Printf("%s => %s\n", src, dest)
 
 	stat, err := os.Stat(src)
 	if err != nil {
@@ -99,11 +118,14 @@ func copyFile(src, dst string) error {
 	}
 	defer in.Close()
 
-	out, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	// copy new file to temporary file
+	tempDest := dest + ".boffin-tmp"
+	out, err := os.OpenFile(tempDest, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
+	defer os.Remove(tempDest)
 
 	_, err = io.Copy(out, in)
 	if err != nil {
@@ -117,10 +139,24 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	err = os.Chtimes(dst, stat.ModTime(), stat.ModTime())
+	err = os.Chtimes(tempDest, stat.ModTime(), stat.ModTime())
 	if err != nil {
 		return err
 	}
+
+	// put temporary file into final desination
+	backupDest := dest + ".boffin-old"
+	if err := os.Rename(dest, backupDest); err != nil {
+		return err
+	}
+	defer os.Rename(backupDest, dest)
+	if err := os.Rename(tempDest, dest); err != nil {
+		return err
+	}
+	if err := os.Remove(backupDest); err != nil {
+		return err
+	}
+
 	return nil
 }
 

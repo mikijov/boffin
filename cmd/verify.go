@@ -19,10 +19,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package cmd
 
 import (
-	// "fmt"
-	// "os"
+	"log"
+	"path/filepath"
 
-	// "github.com/mikijov/boffin/lib"
+	"github.com/mikijov/boffin/lib"
 	"github.com/spf13/cobra"
 )
 
@@ -31,32 +31,31 @@ var verifyCmd = &cobra.Command{
 	Use:   "verify",
 	Short: "verify integrity of all files in the directory",
 	Long:  `Verify directory for changes.`,
-	Args:  cobra.ExactArgs(1),
+	// Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		// dbDir := ""
-		// if dbDirFlag != "" {
-		// 	dbDir = dbDirFlag
-		// } else {
-		// 	wd, err := os.Getwd()
-		// 	if err != nil {
-		// 		fmt.Printf("ERROR: %v\n", err)
-		// 		os.Exit(1)
-		// 	}
-		// 	dbDir, err = lib.FindDbDir(wd)
-		// 	if err != nil {
-		// 		fmt.Printf("ERROR: %v\n", err)
-		// 		os.Exit(1)
-		// 	}
-		// }
-		// db, err := lib.LoadFileDB(dbDir)
-		// if err != nil {
-		// 	fmt.Printf("ERROR: %v\n", err)
-		// 	os.Exit(1)
-		// }
-		// if err = db.Verify(); err != nil {
-		// 	fmt.Printf("ERROR: %v\n", err)
-		// 	os.Exit(1)
-		// }
+		dbDir, err := lib.FindBoffinDir(dbDirFlag)
+		if err != nil {
+			log.Fatalf("ERROR: %v", err)
+		}
+		local, err := lib.LoadBoffin(dbDir)
+		if err != nil {
+			log.Fatalf("ERROR: %v", err)
+		}
+
+		for _, file := range local.GetFiles() {
+			if file.IsDeleted() {
+				continue
+			}
+			path := filepath.Join(local.GetBaseDir(), file.Path())
+			checksum, err := lib.CalculateChecksum(path)
+			if err != nil {
+				log.Printf("ERROR: %v", err)
+			} else if checksum != file.Checksum() {
+				log.Printf("%s: checksum does not match", file.Path())
+			} else {
+				log.Printf("%s: OK", file.Path())
+			}
+		}
 	},
 }
 

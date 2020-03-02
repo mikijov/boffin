@@ -112,7 +112,8 @@ func (fi *FileInfo) Time() time.Time {
 	return time.Time{}
 }
 
-func (fi *FileInfo) isDeleted() bool {
+// IsDeleted ...
+func (fi *FileInfo) IsDeleted() bool {
 	if len(fi.History) == 0 {
 		return true
 	}
@@ -129,7 +130,7 @@ func (fi *FileInfo) inheritsFrom(checksum string) bool {
 }
 
 func (fi *FileInfo) markDeleted() {
-	if !fi.isDeleted() {
+	if !fi.IsDeleted() {
 		fi.History = append(fi.History, &FileEvent{
 			Path: fi.Path(),
 			Type: deleted,
@@ -142,7 +143,7 @@ func (fi *FileInfo) update(path, relPath string, info os.FileInfo) error {
 	fi.checked = true
 	// fmt.Printf("checking %s\n", fm.Name)
 
-	if !fi.isDeleted() { // check size/time only if not marked as deleted
+	if !fi.IsDeleted() { // check size/time only if not marked as deleted
 		if info.Size() == fi.Size() && info.ModTime().UTC() == fi.Time() {
 			// size and time matches, assume no change
 			return nil
@@ -220,7 +221,7 @@ func filesToPathMap(files []*FileInfo) map[string]*FileInfo {
 	fileMap := make(map[string]*FileInfo)
 
 	for _, file := range files {
-		if !file.checked && !file.isDeleted() {
+		if !file.checked && !file.IsDeleted() {
 			fileMap[file.Path()] = file
 		}
 	}
@@ -232,7 +233,7 @@ func filesToHashMap(files []*FileInfo) map[string][]*FileInfo {
 	fileMap := make(map[string][]*FileInfo)
 
 	for _, file := range files {
-		if !file.checked && !file.isDeleted() {
+		if !file.checked && !file.IsDeleted() {
 			fi, found := fileMap[file.Checksum()]
 			if found {
 				fileMap[file.Checksum()] = append(fi, file)
@@ -371,7 +372,7 @@ func (db *db) Update2() error {
 				relPath: relPath,
 				fi:      info,
 			})
-		} else if localFile.isDeleted() {
+		} else if localFile.IsDeleted() {
 			filesToCheck = append(filesToCheck, &toCheck{
 				path:    path,
 				relPath: relPath,
@@ -385,7 +386,7 @@ func (db *db) Update2() error {
 			})
 		} else {
 			localFile.checked = true
-			fmt.Printf("=%s\n", localFile.Path())
+			// fmt.Printf("=%s\n", localFile.Path())
 			delete(filesByPath, relPath)
 		}
 
@@ -400,19 +401,11 @@ func (db *db) Update2() error {
 	updates := make(map[string][]*toCheck)
 
 	for _, f := range filesToCheck {
-		file, err := os.Open(f.path)
+		var err error
+		f.hash, err = CalculateChecksum(f.path)
 		if err != nil {
 			return err
 		}
-		defer file.Close()
-
-		hash := sha256.New()
-		if _, err := io.Copy(hash, file); err != nil {
-			return err
-		}
-
-		f.hash = base64.StdEncoding.EncodeToString(hash.Sum(nil))
-		fmt.Printf("%s:%s\n", f.relPath, f.hash)
 
 		hashes, found := updates[f.hash]
 		if found {
@@ -465,7 +458,7 @@ func (db *db) Update2() error {
 						localFile.checked = true
 						result.matched = true
 						lcount-- // effectively undo the localFiles[lcount] = localFile
-						fmt.Printf("=%s\n", localFile.Path())
+						// fmt.Printf("=%s\n", localFile.Path())
 					} else {
 						results[rcount] = result
 						rcount++
@@ -508,7 +501,7 @@ func (db *db) Update2() error {
 						localFile.checked = true
 						result.matched = true
 						lcount-- // effectively undo the localFiles[lcount] = localFile
-						fmt.Printf("~%s => %s\n", localFile.Path(), result.relPath)
+						// fmt.Printf("~%s => %s\n", localFile.Path(), result.relPath)
 						localFile.History = append(localFile.History, &FileEvent{
 							Type:     changed,
 							Path:     result.relPath,
@@ -546,7 +539,7 @@ func (db *db) Update2() error {
 				if localFile.checked || result.matched {
 					panic("this should never happen:5:")
 				}
-				fmt.Printf("~%s => %s\n", localFile.Path(), result.relPath)
+				// fmt.Printf("~%s => %s\n", localFile.Path(), result.relPath)
 				localFile.History = append(localFile.History, &FileEvent{
 					Type:     changed,
 					Path:     result.relPath,
@@ -572,7 +565,7 @@ func (db *db) Update2() error {
 						panic("this should never happen:6:")
 					}
 					result.matched = true
-					fmt.Printf("+%s\n", result.relPath)
+					// fmt.Printf("+%s\n", result.relPath)
 
 					db.files = append(db.files, &FileInfo{
 						History: []*FileEvent{
@@ -598,7 +591,7 @@ func (db *db) Update2() error {
 						panic("this should never happen:7:")
 					}
 					result.matched = true
-					fmt.Printf("!%s\n", result.relPath)
+					// fmt.Printf("!%s\n", result.relPath)
 					// TODO: is it safe to continue here?
 				}
 				results = results[:0]
@@ -609,7 +602,7 @@ func (db *db) Update2() error {
 						panic("this should never happen:8:")
 					}
 					localFile.checked = true
-					fmt.Printf("!%s\n", localFile.Path())
+					// fmt.Printf("!%s\n", localFile.Path())
 					// TODO: is it safe to continue here?
 				}
 				localFiles = localFiles[:0]
@@ -644,7 +637,7 @@ func (db *db) Update2() error {
 				if localFile.checked {
 					panic("this should never happen:10:")
 				}
-				fmt.Printf("~%s\n", localFile.Path())
+				// fmt.Printf("~%s\n", localFile.Path())
 				localFile.checked = true
 				localFile.History = append(localFile.History, &FileEvent{
 					Type:     changed,
@@ -654,7 +647,7 @@ func (db *db) Update2() error {
 					Checksum: result.hash,
 				})
 			} else {
-				fmt.Printf("+%s\n", result.relPath)
+				// fmt.Printf("+%s\n", result.relPath)
 				db.files = append(db.files, &FileInfo{
 					History: []*FileEvent{
 						&FileEvent{
@@ -680,9 +673,9 @@ func (db *db) Update2() error {
 	//     - mark as checked
 	// fmt.Printf("unchecked\n")
 	for _, localFile := range db.files {
-		if !localFile.checked && !localFile.isDeleted() {
+		if !localFile.checked && !localFile.IsDeleted() {
 			localFile.checked = true
-			fmt.Printf("-%s\n", localFile.Path())
+			// fmt.Printf("-%s\n", localFile.Path())
 			localFile.markDeleted()
 		}
 	}
@@ -761,11 +754,11 @@ func (db *db) Diff(other Boffin) []DiffResult {
 			i = i + 1
 			j = j + 1
 
-			if localFile.isDeleted() && remoteFile.isDeleted() {
+			if localFile.IsDeleted() && remoteFile.IsDeleted() {
 				result.Result = DiffEqual
-			} else if localFile.isDeleted() {
+			} else if localFile.IsDeleted() {
 				result.Result = DiffLocalDeleted
-			} else if remoteFile.isDeleted() {
+			} else if remoteFile.IsDeleted() {
 				result.Result = DiffRemoteDeleted
 			} else if localFile.Checksum() == remoteFile.Checksum() {
 				result.Result = DiffEqual
@@ -810,7 +803,7 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 	for _, remoteFile := range remote.GetFiles() {
 		localFile, localFound := localFiles[remoteFile.Checksum()]
 		//   - if not deleted and checksum exists in local repo
-		if !remoteFile.isDeleted() && localFound {
+		if !remoteFile.IsDeleted() && localFound {
 			//     - mark local file as checked
 			if localFile.checked {
 				panic("already checked")
@@ -818,14 +811,14 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 			localFile.checked = true
 
 			//     - if match is current file version in local repo
-			if remoteFile.isDeleted() && localFile.isDeleted() {
+			if remoteFile.IsDeleted() && localFile.IsDeleted() {
 				results = append(results, DiffResult{
 					Result: DiffEqual,
 					Local:  localFile,
 					Remote: remoteFile,
 				})
 				//     - else - if match is older version
-			} else if localFile.isDeleted() {
+			} else if localFile.IsDeleted() {
 				results = append(results, DiffResult{
 					Result: DiffLocalDeleted,
 					Local:  localFile,
@@ -861,7 +854,7 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 					localFile.checked = true
 					//         - if match is current file version in local repo
 					if remoteEvent.Checksum == localFile.Checksum() {
-						if remoteFile.isDeleted() {
+						if remoteFile.IsDeleted() {
 							results = append(results, DiffResult{
 								Result: DiffRemoteDeleted,
 								Local:  localFile,
@@ -874,7 +867,7 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 								Remote: remoteFile,
 							})
 						}
-					} else if remoteFile.isDeleted() && localFile.isDeleted() {
+					} else if remoteFile.IsDeleted() && localFile.IsDeleted() {
 						//         - else if both files deleted
 						// TODO: merge histories?
 						results = append(results, DiffResult{
@@ -899,7 +892,7 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 			// if none of the historic hashes found in local repo
 			if !foundLocalMatch {
 				//     - else - checksum not matched
-				if remoteFile.isDeleted() {
+				if remoteFile.IsDeleted() {
 					// TODO: keep history?
 					results = append(results, DiffResult{
 						Result: DiffEqual,
@@ -923,7 +916,7 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 	//       - 'LocalAdded'
 	for _, localFile := range db.files {
 		if !localFile.checked {
-			if localFile.isDeleted() {
+			if localFile.IsDeleted() {
 				results = append(results, DiffResult{
 					Result: DiffLocalDeleted,
 					Local:  localFile,
@@ -1152,4 +1145,19 @@ func FindBoffinDir(dir string) (string, error) {
 	}
 
 	return "", fmt.Errorf("could not find %s dir", defaultDbDir)
+}
+
+func CalculateChecksum(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(hash.Sum(nil)), nil
 }

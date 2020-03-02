@@ -20,7 +20,7 @@ package cmd
 
 import (
 	"fmt"
-	"os"
+	"log"
 
 	"github.com/mikijov/boffin/lib"
 	"github.com/spf13/cobra"
@@ -29,7 +29,7 @@ import (
 // diffCmd represents the diff command
 var diffCmd = &cobra.Command{
 	Use:   "diff <remote-repo>",
-	Short: "Show differences between current and remote repo.",
+	Short: "Show differences between local and remote repo.",
 	Long: `Diff will use meta-data from the repository and compare their contents.
 	It will show added, removed and changed files. If the file by the same name
 	exists in both repositories, but they do not share the same history, a
@@ -38,26 +38,20 @@ var diffCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		dbDir, err := lib.FindBoffinDir(dbDirFlag)
 		if err != nil {
-			fmt.Printf("ERROR: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("ERROR: %v\n", err)
 		}
-
 		local, err := lib.LoadBoffin(dbDir)
 		if err != nil {
-			fmt.Printf("ERROR: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("ERROR: %v\n", err)
 		}
 
 		dbDir, err = lib.FindBoffinDir(args[0])
 		if err != nil {
-			fmt.Printf("ERROR: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("ERROR: %v\n", err)
 		}
-
 		remote, err := lib.LoadBoffin(dbDir)
 		if err != nil {
-			fmt.Printf("ERROR: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("ERROR: %v\n", err)
 		}
 
 		for _, diff := range local.Diff2(remote) {
@@ -69,12 +63,12 @@ var diffCmd = &cobra.Command{
 				fmt.Printf("R:%s\n", diff.Remote.Path())
 			} else if diff.Result == lib.DiffLocalDeleted {
 				fmt.Printf("+:%s\n", diff.Local.Path())
-			} else if diff.Result == lib.DiffRemoteAdded {
+			} else if diff.Result == lib.DiffRemoteDeleted {
 				fmt.Printf("-:%s\n", diff.Local.Path())
 			} else if diff.Result == lib.DiffLocalChanged {
-				fmt.Printf(">:%s\n", diff.Local.Path())
-			} else if diff.Result == lib.DiffRemoteChanged {
 				fmt.Printf("<:%s\n", diff.Local.Path())
+			} else if diff.Result == lib.DiffRemoteChanged {
+				fmt.Printf(">:%s\n", diff.Local.Path())
 			} else if diff.Result == lib.DiffConflict {
 				fmt.Printf("~:%s\n", diff.Local.Path())
 			} else {
