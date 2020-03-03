@@ -69,7 +69,7 @@ var importCmd = &cobra.Command{
 				src := filepath.Join(remote.GetBaseDir(), diff.Remote.Path())
 				dest := filepath.Join(local.GetImportDir(), diff.Remote.Path())
 
-				if err := copyFile(src, dest); err != nil {
+				if err := addFile(src, dest); err != nil {
 					exit = 1
 					break
 				}
@@ -85,7 +85,7 @@ var importCmd = &cobra.Command{
 				src := filepath.Join(remote.GetBaseDir(), diff.Remote.Path())
 				dest := filepath.Join(local.GetBaseDir(), diff.Local.Path())
 
-				if err := copyFile(src, dest); err != nil {
+				if err := replaceFile(src, dest); err != nil {
 					exit = 1
 					break
 				}
@@ -102,10 +102,41 @@ var importCmd = &cobra.Command{
 	},
 }
 
+func addFile(src, dest string) error {
+	if fi, err := os.Stat(dest); err == nil {
+		if fi.IsDir() {
+			return fmt.Errorf("destination is a directory for addFile operation: %s", dest)
+		}
+		return fmt.Errorf("destination file exists for addFile operation: %s", dest)
+	} else if os.IsNotExist(err) {
+		// this path is what is expected
+		return _copyFile(src, dest)
+	} else {
+		return fmt.Errorf("unexpected error when checking '%s' during addFile operation: %s", dest, err)
+	}
+}
+
+func replaceFile(src, dest string) error {
+	if fi, err := os.Stat(dest); err == nil {
+		if fi.IsDir() {
+			return fmt.Errorf("destination is a directory: %s", dest)
+		}
+		// this path is what is expected
+		return _copyFile(src, dest)
+	} else if os.IsNotExist(err) {
+		return fmt.Errorf("destination file missing for replaceFile operation: %s", dest)
+	} else {
+		return fmt.Errorf("unexpected error when checking '%s' during replaceFile operation: %s", dest, err)
+	}
+}
+
 // Copy the src file to dest. Any existing file will be overwritten and will not
 // copy file attributes.
-func copyFile(src, dest string) error {
+func _copyFile(src, dest string) error {
 	fmt.Printf("%s => %s\n", src, dest)
+	if dryRun {
+		return nil
+	}
 
 	stat, err := os.Stat(src)
 	if err != nil {

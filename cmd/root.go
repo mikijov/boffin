@@ -29,6 +29,7 @@ import (
 
 var cfgFile string
 var dbDirFlag string
+var dryRun bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -69,6 +70,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.boffin)")
 	rootCmd.PersistentFlags().StringVar(&dbDirFlag, "db-dir", "", "db directory if out of BASE (default is BASE_DIR/.boffin)")
+	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "do not make any changed to files")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
