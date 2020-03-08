@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -141,7 +142,7 @@ func (fi *FileInfo) markDeleted() {
 
 func (fi *FileInfo) update(path, relPath string, info os.FileInfo) error {
 	fi.checked = true
-	// fmt.Printf("checking %s\n", fm.Name)
+	// fmt.Printf("checking %s\n", path)
 
 	if !fi.IsDeleted() { // check size/time only if not marked as deleted
 		if info.Size() == fi.Size() && info.ModTime().UTC() == fi.Time() {
@@ -229,7 +230,8 @@ func filesToPathMap(files []*FileInfo) map[string]*FileInfo {
 	return fileMap
 }
 
-func filesToHashMap(files []*FileInfo) map[string][]*FileInfo {
+// FilesToHashMap ...
+func FilesToHashMap(files []*FileInfo) map[string][]*FileInfo {
 	fileMap := make(map[string][]*FileInfo)
 
 	for _, file := range files {
@@ -341,18 +343,25 @@ func (db *db) Update2() error {
 	// - for each file on the file system
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return fmt.Errorf("%s: error getting file info: %s", path, err)
+			if os.IsPermission(err) {
+				log.Printf("%s: permission denied", path)
+			} else {
+				return fmt.Errorf("%s: error getting file info: %s", path, err)
+			}
 		}
 		if info.IsDir() {
 			if info.Name() == defaultDbDir { // skip DB directory
+				// fmt.Printf("skip %s\n", path)
 				return filepath.SkipDir
 			}
+			// fmt.Printf("dir %s\n", path)
 			return nil
 		}
 
 		root := path[:len(dir)]
 		if dir != root {
 			// this should never happen
+			// fmt.Printf("err1 %s\n", path)
 			return fmt.Errorf("unexpected error; root mismatch '%s' != '%s'", dir, root)
 		}
 
@@ -367,18 +376,21 @@ func (db *db) Update2() error {
 		//     - put file in to-be-checked list
 		localFile, ok := filesByPath[relPath]
 		if !ok {
+			// fmt.Printf("checking %s\n", relPath)
 			filesToCheck = append(filesToCheck, &toCheck{
 				path:    path,
 				relPath: relPath,
 				fi:      info,
 			})
 		} else if localFile.IsDeleted() {
+			// fmt.Printf("checking %s\n", relPath)
 			filesToCheck = append(filesToCheck, &toCheck{
 				path:    path,
 				relPath: relPath,
 				fi:      info,
 			})
 		} else if info.Size() != localFile.Size() || !info.ModTime().Equal(localFile.Time()) {
+			// fmt.Printf("checking %s\n", relPath)
 			filesToCheck = append(filesToCheck, &toCheck{
 				path:    path,
 				relPath: relPath,
@@ -392,6 +404,9 @@ func (db *db) Update2() error {
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 
 	// # bulk calculate checksums
 	// - for each file in the to-be-checked list
@@ -406,6 +421,7 @@ func (db *db) Update2() error {
 		if err != nil {
 			return err
 		}
+		fmt.Printf("%s: %s\n", f.hash, f.relPath)
 
 		hashes, found := updates[f.hash]
 		if found {
@@ -415,7 +431,7 @@ func (db *db) Update2() error {
 		}
 	}
 
-	filesByHash := filesToHashMap(db.files)
+	filesByHash := FilesToHashMap(db.files)
 
 	// # match everything you can using hashes
 	// - for each update

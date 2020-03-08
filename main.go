@@ -16,7 +16,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 package main
 
-import "github.com/mikijov/boffin/cmd"
+import (
+	"github.com/mikijov/boffin/cmd"
+)
 
 func main() {
 	cmd.Execute()

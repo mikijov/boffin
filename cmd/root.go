@@ -35,12 +35,18 @@ var dryRun bool
 var rootCmd = &cobra.Command{
 	Use:   "boffin",
 	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Long: `Copyright (C) 2020 by Milutin Jovanvović. This program comes with ABSOLUTELY NO
+WARRANTY. This is free software, and you are welcome to redistribute it under
+certain conditions. See LICENSE for details.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+Boffin is a utility that helps collect files and file changes from multiple
+sources while keeping only the most recent copy of the file, as well as keeping
+destination directory structure.
+
+Example use case would be to collect photos from multiple devices. Once copied
+to the repository, Boffin keeps track of the file changes, so if the file is
+changed, renamed or moved in the repository, it will not be imported again in
+the future.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	//	Run: func(cmd *cobra.Command, args []string) { },

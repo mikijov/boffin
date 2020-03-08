@@ -29,7 +29,7 @@ import (
 // verifyCmd represents the verify command
 var verifyCmd = &cobra.Command{
 	Use:   "verify",
-	Short: "verify integrity of all files in the directory",
+	Short: "verify integrity of all files in the repository",
 	Long:  `Verify directory for changes.`,
 	// Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
