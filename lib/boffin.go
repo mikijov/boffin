@@ -63,7 +63,7 @@ type Boffin interface {
 	Save() error
 	Sort()
 	Update() error
-	Update2() error
+	Update2(forceCheck bool) error
 	Diff(other Boffin) []DiffResult
 	Diff2(remote Boffin) []DiffResult
 }
@@ -319,7 +319,7 @@ type toCheck struct {
 	matched bool // TODO: remove after debugging
 }
 
-func (db *db) Update2() error {
+func (db *db) Update2(forceCheck bool) error {
 	dir := db.GetBaseDir()
 
 	info, err := os.Stat(dir)
@@ -375,21 +375,10 @@ func (db *db) Update2() error {
 		//   - else
 		//     - put file in to-be-checked list
 		localFile, ok := filesByPath[relPath]
-		if !ok {
-			// fmt.Printf("checking %s\n", relPath)
-			filesToCheck = append(filesToCheck, &toCheck{
-				path:    path,
-				relPath: relPath,
-				fi:      info,
-			})
-		} else if localFile.IsDeleted() {
-			// fmt.Printf("checking %s\n", relPath)
-			filesToCheck = append(filesToCheck, &toCheck{
-				path:    path,
-				relPath: relPath,
-				fi:      info,
-			})
-		} else if info.Size() != localFile.Size() || !info.ModTime().Equal(localFile.Time()) {
+		if forceCheck ||
+			!ok ||
+			localFile.IsDeleted() ||
+			info.Size() != localFile.Size() || !info.ModTime().Equal(localFile.Time()) {
 			// fmt.Printf("checking %s\n", relPath)
 			filesToCheck = append(filesToCheck, &toCheck{
 				path:    path,
@@ -421,7 +410,7 @@ func (db *db) Update2() error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("%s: %s\n", f.hash, f.relPath)
+		log.Printf("%s: %s\n", f.hash, f.relPath)
 
 		hashes, found := updates[f.hash]
 		if found {
@@ -517,7 +506,7 @@ func (db *db) Update2() error {
 						localFile.checked = true
 						result.matched = true
 						lcount-- // effectively undo the localFiles[lcount] = localFile
-						// fmt.Printf("~%s => %s\n", localFile.Path(), result.relPath)
+						fmt.Printf("~%s => %s\n", localFile.Path(), result.relPath)
 						localFile.History = append(localFile.History, &FileEvent{
 							Type:     changed,
 							Path:     result.relPath,
@@ -555,7 +544,7 @@ func (db *db) Update2() error {
 				if localFile.checked || result.matched {
 					panic("this should never happen:5:")
 				}
-				// fmt.Printf("~%s => %s\n", localFile.Path(), result.relPath)
+				fmt.Printf("~%s => %s\n", localFile.Path(), result.relPath)
 				localFile.History = append(localFile.History, &FileEvent{
 					Type:     changed,
 					Path:     result.relPath,
@@ -581,7 +570,7 @@ func (db *db) Update2() error {
 						panic("this should never happen:6:")
 					}
 					result.matched = true
-					// fmt.Printf("+%s\n", result.relPath)
+					fmt.Printf("+%s\n", result.relPath)
 
 					db.files = append(db.files, &FileInfo{
 						History: []*FileEvent{
@@ -607,7 +596,7 @@ func (db *db) Update2() error {
 						panic("this should never happen:7:")
 					}
 					result.matched = true
-					// fmt.Printf("!%s\n", result.relPath)
+					fmt.Printf("!%s\n", result.relPath)
 					// TODO: is it safe to continue here?
 				}
 				results = results[:0]
@@ -618,7 +607,7 @@ func (db *db) Update2() error {
 						panic("this should never happen:8:")
 					}
 					localFile.checked = true
-					// fmt.Printf("!%s\n", localFile.Path())
+					fmt.Printf("!%s\n", localFile.Path())
 					// TODO: is it safe to continue here?
 				}
 				localFiles = localFiles[:0]
@@ -653,7 +642,7 @@ func (db *db) Update2() error {
 				if localFile.checked {
 					panic("this should never happen:10:")
 				}
-				// fmt.Printf("~%s\n", localFile.Path())
+				fmt.Printf("~%s\n", localFile.Path())
 				localFile.checked = true
 				localFile.History = append(localFile.History, &FileEvent{
 					Type:     changed,
@@ -663,7 +652,7 @@ func (db *db) Update2() error {
 					Checksum: result.hash,
 				})
 			} else {
-				// fmt.Printf("+%s\n", result.relPath)
+				fmt.Printf("+%s\n", result.relPath)
 				db.files = append(db.files, &FileInfo{
 					History: []*FileEvent{
 						&FileEvent{
@@ -691,7 +680,7 @@ func (db *db) Update2() error {
 	for _, localFile := range db.files {
 		if !localFile.checked && !localFile.IsDeleted() {
 			localFile.checked = true
-			// fmt.Printf("-%s\n", localFile.Path())
+			fmt.Printf("-%s\n", localFile.Path())
 			localFile.markDeleted()
 		}
 	}

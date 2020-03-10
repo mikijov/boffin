@@ -25,6 +25,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var checkContents bool
+
 // updateCmd represents the update command
 var updateCmd = &cobra.Command{
 	Use:   "update",
@@ -43,7 +45,7 @@ var updateCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("ERROR: %v\n", err)
 		}
-		if err = boffin.Update2(); err != nil {
+		if err = boffin.Update2(checkContents); err != nil {
 			log.Fatalf("ERROR: %v\n", err)
 		}
 		if !dryRun {
@@ -61,7 +63,7 @@ func init() {
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// updateCmd.PersistentFlags().String("foo", "", "A help for foo")
+	updateCmd.PersistentFlags().BoolVar(&checkContents, "check-contents", false, "force content check even if file metadata matches")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
