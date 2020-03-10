@@ -64,12 +64,13 @@ var importCmd = &cobra.Command{
 			} else if diff.Result == lib.DiffLocalAdded {
 				// fmt.Printf("L:%s\n", diff.Local.Path())
 			} else if diff.Result == lib.DiffRemoteAdded {
-				fmt.Printf("R:%s\n", diff.Remote.Path())
+				// fmt.Printf("R:%s\n", diff.Remote.Path())
 
 				src := filepath.Join(remote.GetBaseDir(), diff.Remote.Path())
 				dest := filepath.Join(local.GetImportDir(), diff.Remote.Path())
 
 				if err := addFile(src, dest); err != nil {
+					log.Printf("%v", err)
 					exit = 1
 					break
 				}
@@ -80,12 +81,13 @@ var importCmd = &cobra.Command{
 			} else if diff.Result == lib.DiffLocalChanged {
 				// fmt.Printf("<:%s\n", diff.Local.Path())
 			} else if diff.Result == lib.DiffRemoteChanged {
-				fmt.Printf(">:%s\n", diff.Local.Path())
+				// fmt.Printf(">:%s\n", diff.Local.Path())
 
 				src := filepath.Join(remote.GetBaseDir(), diff.Remote.Path())
 				dest := filepath.Join(local.GetBaseDir(), diff.Local.Path())
 
 				if err := replaceFile(src, dest); err != nil {
+					log.Printf("%v", err)
 					exit = 1
 					break
 				}
@@ -149,6 +151,10 @@ func _copyFile(src, dest string) error {
 	}
 	defer in.Close()
 
+	if err := os.MkdirAll(filepath.Dir(dest), 0777); err != nil {
+		return err
+	}
+
 	// copy new file to temporary file
 	tempDest := dest + ".boffin-tmp"
 	out, err := os.OpenFile(tempDest, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
@@ -177,15 +183,21 @@ func _copyFile(src, dest string) error {
 
 	// put temporary file into final desination
 	backupDest := dest + ".boffin-old"
-	if err := os.Rename(dest, backupDest); err != nil {
-		return err
+	var backupErr error
+	if backupErr = os.Rename(dest, backupDest); backupErr != nil {
+		if !os.IsNotExist(backupErr) {
+			return backupErr
+		}
+	} else {
+		defer os.Rename(backupDest, dest)
 	}
-	defer os.Rename(backupDest, dest)
 	if err := os.Rename(tempDest, dest); err != nil {
 		return err
 	}
-	if err := os.Remove(backupDest); err != nil {
-		return err
+	if backupErr == nil {
+		if err := os.Remove(backupDest); err != nil {
+			return err
+		}
 	}
 
 	return nil

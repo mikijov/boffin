@@ -1053,7 +1053,7 @@ func (db *db) Save() error {
 	defer os.Remove(newFilename) // cleanup; will work only if the old file could not be replaced
 
 	{ // write new file
-		file, err := os.OpenFile(newFilename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0444)
+		file, err := os.OpenFile(newFilename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 		if err != nil {
 			return err
 		}
@@ -1076,6 +1076,12 @@ func (db *db) Save() error {
 		}
 		if err := os.Rename(newFilename, filename); err != nil {
 			return fmt.Errorf("critical error; failed to rename '%s' to '%s'", newFilename, filename)
+		}
+
+		if fi, err := os.Stat(filename); err == nil {
+			os.Chmod(filename, fi.Mode()&0444)
+		} else {
+			log.Printf("warning: failed to make repo file read only")
 		}
 	}
 
