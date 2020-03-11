@@ -674,7 +674,7 @@ func TestUpdate2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	err = boffin.Update2()
+	err = boffin.Update2(false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

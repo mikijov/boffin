@@ -186,12 +186,14 @@ func (fi *FileInfo) update(path, relPath string, info os.FileInfo) error {
 // `88888P8 88Y8888'
 
 type db struct {
-	dbDir      string
-	absBaseDir string
+	dbDir        string
+	absBaseDir   string
+	absImportDir string
 
 	// this is simply kept for saving purposes
-	baseDir string
-	files   []*FileInfo
+	baseDir   string
+	importDir string
+	files     []*FileInfo
 }
 
 // GetDbDir ...
@@ -204,10 +206,12 @@ func (db *db) GetBaseDir() string {
 	return db.absBaseDir
 }
 
+// GetImportDir ...
 func (db *db) GetImportDir() string {
-	return filepath.Join(db.GetBaseDir(), "import")
+	return db.absImportDir
 }
 
+// GetFiles ...
 func (db *db) GetFiles() []*FileInfo {
 	return db.files
 }
@@ -979,8 +983,9 @@ type jsonStruct struct {
 }
 
 type v1Struct struct {
-	BaseDir string      `json:"base-dir"`
-	Files   []*FileInfo `json:"files"`
+	BaseDir   string      `json:"base-dir"`
+	ImportDir string      `json:"import-dir"`
+	Files     []*FileInfo `json:"files"`
 }
 
 // InitDbDir ...
@@ -1105,15 +1110,21 @@ func LoadBoffin(dbDir string) (Boffin, error) {
 	}
 
 	db := &db{
-		dbDir:   dbDir,
-		baseDir: rawJSON.V1.BaseDir,
-		files:   rawJSON.V1.Files,
+		dbDir:     dbDir,
+		baseDir:   rawJSON.V1.BaseDir,
+		importDir: rawJSON.V1.ImportDir,
+		files:     rawJSON.V1.Files,
 	}
 
 	if filepath.IsAbs(db.baseDir) {
 		db.absBaseDir, err = cleanPath(db.baseDir)
 	} else {
 		db.absBaseDir, err = cleanPath(filepath.Join(dbDir, db.baseDir))
+	}
+	if filepath.IsAbs(db.importDir) {
+		db.absImportDir, err = cleanPath(db.importDir)
+	} else {
+		db.absImportDir, err = cleanPath(filepath.Join(db.absBaseDir, db.importDir))
 	}
 	if err != nil {
 		return nil, err
