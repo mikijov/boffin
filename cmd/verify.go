@@ -33,10 +33,14 @@ var verifyCmd = &cobra.Command{
 	Long:  `Verify directory for changes.`,
 	// Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		dbDir, err := lib.FindBoffinDir(dbDirFlag)
-		if err != nil {
-			log.Fatalf("ERROR: %v", err)
+		if dbDir == "" {
+			var err error
+			dbDir, err = lib.FindBoffinDir(dbDir)
+			if err != nil {
+				log.Fatalf("ERROR: %v\n", err)
+			}
 		}
+
 		local, err := lib.LoadBoffin(dbDir)
 		if err != nil {
 			log.Fatalf("ERROR: %v", err)

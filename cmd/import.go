@@ -38,10 +38,14 @@ var importCmd = &cobra.Command{
 	Options can be used to control which changes will be imported.`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		dbDir, err := lib.FindBoffinDir(dbDirFlag)
-		if err != nil {
-			log.Fatalf("ERROR: %v\n", err)
+		if dbDir == "" {
+			var err error
+			dbDir, err = lib.FindBoffinDir(dbDir)
+			if err != nil {
+				log.Fatalf("ERROR: %v\n", err)
+			}
 		}
+
 		local, err := lib.LoadBoffin(dbDir)
 		if err != nil {
 			log.Fatalf("ERROR: %v\n", err)

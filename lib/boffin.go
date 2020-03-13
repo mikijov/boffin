@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -355,6 +356,9 @@ func (db *db) Update2(forceCheck bool) error {
 		}
 		if info.IsDir() {
 			if info.Name() == defaultDbDir { // skip DB directory
+				// fmt.Printf("skip %s\n", path)
+				return filepath.SkipDir
+			} else if strings.HasPrefix(info.Name(), ".") {
 				// fmt.Printf("skip %s\n", path)
 				return filepath.SkipDir
 			}

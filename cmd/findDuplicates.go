@@ -29,10 +29,14 @@ var findDuplicatesCmd = &cobra.Command{
 	Short: "find and display duplicate files",
 	Long:  `find and display duplicate files`,
 	Run: func(cmd *cobra.Command, args []string) {
-		dbDir, err := lib.FindBoffinDir(dbDirFlag)
-		if err != nil {
-			log.Fatalf("ERROR: %v", err)
+		if dbDir == "" {
+			var err error
+			dbDir, err = lib.FindBoffinDir(dbDir)
+			if err != nil {
+				log.Fatalf("ERROR: %v\n", err)
+			}
 		}
+
 		local, err := lib.LoadBoffin(dbDir)
 		if err != nil {
 			log.Fatalf("ERROR: %v", err)

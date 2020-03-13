@@ -36,9 +36,12 @@ var updateCmd = &cobra.Command{
 	size or modification timestamp are changed will the file checksum be checked.`,
 	// Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		dbDir, err := lib.FindBoffinDir(dbDirFlag)
-		if err != nil {
-			log.Fatalf("ERROR: %v\n", err)
+		if dbDir == "" {
+			var err error
+			dbDir, err = lib.FindBoffinDir(dbDir)
+			if err != nil {
+				log.Fatalf("ERROR: %v\n", err)
+			}
 		}
 
 		boffin, err := lib.LoadBoffin(dbDir)

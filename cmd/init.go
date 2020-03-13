@@ -35,10 +35,7 @@ var initCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		baseDir := args[0]
 
-		dbDir := ""
-		if dbDirFlag != "" {
-			dbDir = dbDirFlag
-		} else {
+		if dbDir == "" {
 			dbDir = lib.ConstuctDbPath(baseDir)
 		}
 
