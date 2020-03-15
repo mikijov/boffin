@@ -49,7 +49,7 @@ but the core functionality seems stable.
 
 ## Future
 
-The current verson of Boffin is primarily meant to prove that the algorithm
+The current version of Boffin is primarily meant to prove that the algorithm
 works and that doing this kind of file tracking and synchronisation is possible.
 If it proves successful here are some ideas for enhancing Boffin.
 
@@ -102,117 +102,137 @@ modified.
 - [ ] boffin import --delete - delete local files that have been deleted remotely
 - [ ] allow separate staging directories for each source client
 
-### diff algo
+### diff algorithm
 
-- for each file in the remote repo
-  - if not deleted and checksum exists in local repo
-    - mark local file as checked
-    - if match is current file version in local repo
-      - 'Equal'
-    - else - if match is older version
-      - if local file is deleted
-        - 'LocalDeleted'
-      - else
-        - 'LocalChanged'
-  - else
-    - for each checksum in file history
-      - if checksum exists in local repo
+    - for each file in the remote repo that is not deleted
+      - if hash exists in the local repo and is not deleted
+
+
+
+    -- prioritise existing files
+    - for each file in the remote repo
+      - if not deleted and checksum exists in local repo
         - mark local file as checked
         - if match is current file version in local repo
+          - 'Equal'
+        - else - if match is older version
+          - if local file is deleted
+            - 'LocalDeleted'
+          - else
+            - 'LocalChanged'
+
+
+
+
+    - for each file in the remote repo
+      - if not deleted and checksum exists in local repo
+        - mark local file as checked
+        - if match is current file version in local repo
+          - 'Equal'
+        - else - if match is older version
+          - if local file is deleted
+            - 'LocalDeleted'
+          - else
+            - 'LocalChanged'
+      - else
+        - for each checksum in file history
+          - if checksum exists in local repo
+            - mark local file as checked
+            - if match is current file version in local repo
+              - if file is deleted
+                - 'RemoteDeleted'
+              - else
+                - 'RemoteChanged'
+            - else if both files deleted
+              - 'Equal'
+            - else - if match is older version and they are not both deleted
+              - 'Conflict'
+        - else - checksum not matched
           - if file is deleted
             - 'RemoteDeleted'
           - else
-            - 'RemoteChanged'
-        - else if both files deleted
-          - 'Equal'
-        - else - if match is older version and they are not both deleted
-          - 'Conflict'
-    - else - checksum not matched
-      - if file is deleted
-        - 'RemoteDeleted'
+            - 'RemoteAdded'
+
+    - for each file in the local repo
+      - if not checked
+        - if deleted
+          - 'LocalDeleted'
+        - else
+          - 'LocalAdded'
+
+### update algorithm
+
+    // get list of files that should be checked
+    - for each file on the file system
+      - if the path matches exactly
+        - if forced check or if size/date changed
+          - put file in to-be-checked list
+        - else
+          - mark checked
       - else
-        - 'RemoteAdded'
+        - put file in to-be-checked list
 
-- for each file in the local repo
-  - if not checked
-    - if deleted
-      - 'LocalDeleted'
-    - else
-      - 'LocalAdded'
+    // bulk calculate checksums
+    - for each file in the to-be-checked list
+      - calculate checksum
+      - put checksum in the 'updates' map[hash][]result
 
-### update algo
+    // match everything you can using hashes
+    - for each update
+      - get current files with matching hashes
 
-# get list of files that should be checked
-- for each file on the file system
-  - if the path matches exactly
-    - if forced check or if size/date changed
-      - put file in to-be-checked list
-    - else
-      - mark checked
-  - else
-    - put file in to-be-checked list
+    // prioritize matching of files with same meta data
+      - for each current file in matching hashes
+        - for each result in update
+          - if whole path for existing file and result matches
+            - mark as unchanged
+            - mark existing file as checked
+            - remove existing file from matching hashes
+            - remove result from update
 
-# bulk calculate checksums
-- for each file in the to-be-checked list
-  - calculate checksum
-  - put checksum in the 'updates' map[hash][]result
+    // prioritize matching of files with same name
+      - for each current file in matching hashes
+        - for each result in update
+          - if filename for existing file and result matches
+            - mark as moved
+            - mark existing file as checked
+            - remove existing file from matching hashes
+            - remove result from update
 
-# match everything you can using hashes
-- for each update
-  - get current files with matching hashes
-
-# prioritize matching of files with same meta data
-  - for each current file in matching hashes
-    - for each result in update
-      - if whole path for existing file and result matches
-        - mark as unchanged
-        - mark existing file as checked
-        - remove existing file from matching hashes
-        - remove result from update
-
-# prioritize matching of files with same name
-  - for each current file in matching hashes
-    - for each result in update
-      - if filename for existing file and result matches
+    // simple case of file being renamed
+      - if only one file in matching hashes and one result in updates
         - mark as moved
         - mark existing file as checked
         - remove existing file from matching hashes
         - remove result from update
 
-# simple case of file being renamed
-  - if only one file in matching hashes and one result in updates
-    - mark as moved
-    - mark existing file as checked
-    - remove existing file from matching hashes
-    - remove result from update
+      - if only updates remain
+        - for every result in updates
+          - mark as new
+          - remove result from update
+      <!-- - else if only matches remain -->
+      <!--   - for every current file in matching hashes -->
+      <!--     - mark as deleted -->
+      - else
+        - for every result in updates
+          - mark as conflict
+          - remove result from update
+        - for every current file in matching hashes
+          - mark as conflict
 
-  - if only updates remain
-    - for every result in updates
-      - mark as new
-      - remove result from update
-  <!-- - else if only matches remain -->
-  <!--   - for every current file in matching hashes -->
-  <!--     - mark as deleted -->
-  - else
-    - for every result in updates
-      - mark as conflict
-      - remove result from update
-    - for every current file in matching hashes
-      - mark as conflict
+    // match everything you can using paths
+    - for each update
+      - if existing file exists with the same path
+        - mark as changed
+        - mark as checked
+      - else
+        - mark as new
 
-# match everything you can using paths
-- for each update
-  - if existing file exists with the same path
-    - mark as changed
-    - mark as checked
-  - else
-    - mark as new
-
-# any file not checked means it was deleted
-- for each existing file
-  - if not checked
-    - mark as deleted
-    - mark as checked
+    // any file not checked means it was deleted
+    - for each existing file
+      - if not checked
+        - mark as deleted
+        - mark as checked
 
 
 

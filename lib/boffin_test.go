@@ -1027,6 +1027,17 @@ func TestDiff2(t *testing.T) {
 					},
 				},
 			},
+			// {
+			// 	History: []*FileEvent{
+			// 		&FileEvent{
+			// 			Path:     "duplicate-deleted-edge-exists",
+			// 			Size:     10,
+			// 			Type:     "changed",
+			// 			Time:     parseTime("2020-01-01T12:34:56Z"),
+			// 			Checksum: "duplicate-deleted-edge",
+			// 		},
+			// 	},
+			// },
 		},
 	}
 	var remote Boffin = &db{
@@ -1134,6 +1145,33 @@ func TestDiff2(t *testing.T) {
 					},
 				},
 			},
+			// {
+			// 	History: []*FileEvent{
+			// 		&FileEvent{
+			// 			Path:     "duplicate-deleted-edge-deleted",
+			// 			Size:     10,
+			// 			Type:     "changed",
+			// 			Time:     parseTime("2020-01-01T12:34:56Z"),
+			// 			Checksum: "duplicate-deleted-edge",
+			// 		},
+			// 		&FileEvent{
+			// 			Path: "duplicate-deleted-edge-deleted",
+			// 			Type: "delated",
+			// 			Time: parseTime("2020-01-03T12:34:56Z"),
+			// 		},
+			// 	},
+			// },
+			// {
+			// 	History: []*FileEvent{
+			// 		&FileEvent{
+			// 			Path:     "duplicate-deleted-edge-exists",
+			// 			Size:     10,
+			// 			Type:     "changed",
+			// 			Time:     parseTime("2020-01-01T12:34:56Z"),
+			// 			Checksum: "duplicate-deleted-edge",
+			// 		},
+			// 	},
+			// },
 		},
 	}
 

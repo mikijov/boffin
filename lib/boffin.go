@@ -819,7 +819,8 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 		if !remoteFile.IsDeleted() && localFound {
 			//     - mark local file as checked
 			if localFile.checked {
-				panic("already checked")
+				printDiff(results)
+				log.Panicf("already checked:%s:%s", localFile.Checksum(), localFile.Path())
 			}
 			localFile.checked = true
 
@@ -862,7 +863,8 @@ func (db *db) Diff2(remote Boffin) []DiffResult {
 				if localFound {
 					//     - mark local file as checked
 					if localFile.checked {
-						panic("already checked")
+						printDiff(results)
+						log.Panicf("already checked:%s:%s", localFile.Checksum(), localFile.Path())
 					}
 					localFile.checked = true
 					//         - if match is current file version in local repo
@@ -1186,4 +1188,32 @@ func CalculateChecksum(path string) (string, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString(hash.Sum(nil)), nil
+}
+
+func printDiff(diffs []DiffResult) {
+	for _, diff := range diffs {
+		if diff.Result == DiffEqual {
+			if diff.Local != nil {
+				fmt.Printf("=:%s\n", diff.Local.Path())
+			} else {
+				fmt.Printf("=:%s\n", diff.Remote.Path())
+			}
+		} else if diff.Result == DiffLocalAdded {
+			fmt.Printf("L:%s\n", diff.Local.Path())
+		} else if diff.Result == DiffRemoteAdded {
+			fmt.Printf("R:%s\n", diff.Remote.Path())
+		} else if diff.Result == DiffLocalDeleted {
+			fmt.Printf("+:%s\n", diff.Local.Path())
+		} else if diff.Result == DiffRemoteDeleted {
+			fmt.Printf("-:%s\n", diff.Local.Path())
+		} else if diff.Result == DiffLocalChanged {
+			fmt.Printf("<:%s\n", diff.Local.Path())
+		} else if diff.Result == DiffRemoteChanged {
+			fmt.Printf(">:%s\n", diff.Local.Path())
+		} else if diff.Result == DiffConflict {
+			fmt.Printf("~:%s\n", diff.Local.Path())
+		} else {
+			fmt.Printf("~:%s\n", diff.Local.Path())
+		}
+	}
 }

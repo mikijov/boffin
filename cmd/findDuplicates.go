@@ -18,10 +18,14 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/mikijov/boffin/lib"
 	"github.com/spf13/cobra"
 )
+
+var deleteDuplicates bool
 
 // findDuplicatesCmd represents the findDuplicates command
 var findDuplicatesCmd = &cobra.Command{
@@ -45,8 +49,20 @@ var findDuplicatesCmd = &cobra.Command{
 		for hash, files := range lib.FilesToHashMap(local.GetFiles()) {
 			if len(files) > 1 {
 				fmt.Printf("%s:\n", hash)
+				keep := true
 				for _, file := range files {
-					fmt.Printf("  %s\n", file.Path())
+					if deleteDuplicates && !keep {
+						fmt.Printf(" -%s\n", file.Path())
+						if !dryRun {
+							path := filepath.Join(local.GetBaseDir(), file.Path())
+							if err := os.Remove(path); err != nil {
+								log.Printf("%v", err)
+							}
+						}
+					} else {
+						fmt.Printf("  %s\n", file.Path())
+						keep = false
+					}
 				}
 			}
 		}
@@ -60,7 +76,7 @@ func init() {
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// findDuplicatesCmd.PersistentFlags().String("foo", "", "A help for foo")
+	findDuplicatesCmd.PersistentFlags().BoolVar(&deleteDuplicates, "delete", false, "delete all but one of the duplicates")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
