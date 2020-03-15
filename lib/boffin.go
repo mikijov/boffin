@@ -53,6 +53,8 @@ type FileInfo struct {
 	checked bool
 }
 
+type FilterFunc func(info os.FileInfo, local *FileInfo) bool
+
 // Boffin ...
 type Boffin interface {
 	GetFiles() []*FileInfo
@@ -63,7 +65,7 @@ type Boffin interface {
 
 	Save() error
 	Sort()
-	Update(forceCheck bool) error
+	Update(filter FilterFunc) error
 	Diff(remote Boffin) []DiffResult
 }
 
@@ -137,44 +139,6 @@ func (fi *FileInfo) markDeleted() {
 			Time: time.Now().UTC(),
 		})
 	}
-}
-
-func (fi *FileInfo) update(path, relPath string, info os.FileInfo) error {
-	fi.checked = true
-	// fmt.Printf("checking %s\n", path)
-
-	if !fi.IsDeleted() { // check size/time only if not marked as deleted
-		if info.Size() == fi.Size() && info.ModTime().UTC() == fi.Time() {
-			// size and time matches, assume no change
-			return nil
-		}
-	}
-
-	file, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return err
-	}
-
-	hashStr := base64.StdEncoding.EncodeToString(hash.Sum(nil))
-	// fmt.Printf("Hash: %s\n", hashStr)
-
-	if len(fi.History) == 0 || hashStr != fi.History[len(fi.History)-1].Checksum {
-		fi.History = append(fi.History, &FileEvent{
-			Path:     relPath,
-			Size:     info.Size(),
-			Type:     changed,
-			Time:     info.ModTime().UTC(),
-			Checksum: hashStr,
-		})
-	}
-
-	return nil
 }
 
 //       dP dP
@@ -259,7 +223,24 @@ type toCheck struct {
 	matched bool // TODO: remove after debugging
 }
 
-func (db *db) Update(forceCheck bool) error {
+func CheckIfMetaChanged(info os.FileInfo, localFile *FileInfo) bool {
+	if localFile == nil {
+		return true
+	}
+	return localFile.IsDeleted() ||
+		info.Size() != localFile.Size() ||
+		!info.ModTime().Equal(localFile.Time())
+}
+
+func ForceCheck(info os.FileInfo, local *FileInfo) bool {
+	return true
+}
+
+func (db *db) Update(filter FilterFunc) error {
+	if filter == nil {
+		filter = CheckIfMetaChanged
+	}
+
 	dir := db.GetBaseDir()
 
 	info, err := os.Stat(dir)
@@ -318,17 +299,13 @@ func (db *db) Update(forceCheck bool) error {
 		//   - else
 		//     - put file in to-be-checked list
 		localFile, ok := filesByPath[relPath]
-		if forceCheck ||
-			!ok ||
-			localFile.IsDeleted() ||
-			info.Size() != localFile.Size() || !info.ModTime().Equal(localFile.Time()) {
-			// fmt.Printf("checking %s\n", relPath)
+		if filter(info, localFile) {
 			filesToCheck = append(filesToCheck, &toCheck{
 				path:    path,
 				relPath: relPath,
 				fi:      info,
 			})
-		} else {
+		} else if ok {
 			localFile.checked = true
 			// fmt.Printf("=%s\n", localFile.Path())
 			delete(filesByPath, relPath)
