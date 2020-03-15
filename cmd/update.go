@@ -48,7 +48,7 @@ var updateCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("ERROR: %v\n", err)
 		}
-		if err = boffin.Update2(checkContents); err != nil {
+		if err = boffin.Update(checkContents); err != nil {
 			log.Fatalf("ERROR: %v\n", err)
 		}
 		if !dryRun {

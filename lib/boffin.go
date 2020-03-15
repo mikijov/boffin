@@ -63,10 +63,8 @@ type Boffin interface {
 
 	Save() error
 	Sort()
-	Update() error
-	Update2(forceCheck bool) error
-	Diff(other Boffin) []DiffResult
-	Diff2(remote Boffin) []DiffResult
+	Update(forceCheck bool) error
+	Diff(remote Boffin) []DiffResult
 }
 
 // Checksum ...
@@ -253,69 +251,6 @@ func FilesToHashMap(files []*FileInfo) map[string][]*FileInfo {
 	return fileMap
 }
 
-// Update ...
-func (db *db) Update() error {
-	dir := db.GetBaseDir()
-
-	info, err := os.Stat(dir)
-	if err != nil {
-		return fmt.Errorf("base directory '%s' does not exist", dir)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("base directory '%s' is not a directory", dir)
-	}
-
-	// TODO: consider if this should deep copy if object should stay unchanged on error
-	fileMap := filesToPathMap(db.files)
-
-	// fmt.Printf("walking %s\n", dir)
-	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return fmt.Errorf("%s: error getting file info: %s", path, err)
-		}
-		if info.IsDir() {
-			if info.Name() == defaultDbDir { // skip DB directory
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		root := path[:len(dir)]
-		if dir != root {
-			// this should never happen
-			return fmt.Errorf("unexpected error; root mismatch '%s' != '%s'", dir, root)
-		}
-
-		relPath := path[len(dir)+1:]
-
-		file, ok := fileMap[relPath]
-		if !ok {
-			file = &FileInfo{}
-			fileMap[relPath] = file
-			db.files = append(db.files, file)
-		}
-
-		err = file.update(path, relPath, info)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return err
-	}
-
-	for _, file := range db.files {
-		if !file.checked {
-			file.markDeleted()
-		}
-	}
-
-	return nil
-}
-
 type toCheck struct {
 	path    string
 	relPath string
@@ -324,7 +259,7 @@ type toCheck struct {
 	matched bool // TODO: remove after debugging
 }
 
-func (db *db) Update2(forceCheck bool) error {
+func (db *db) Update(forceCheck bool) error {
 	dir := db.GetBaseDir()
 
 	info, err := os.Stat(dir)
@@ -723,82 +658,7 @@ type DiffResult struct {
 }
 
 // Diff ...
-func (db *db) Diff(other Boffin) []DiffResult {
-	otherFiles := other.GetFiles()
-
-	// sort both file lists so that we can perform merge
-	db.Sort()
-	other.Sort()
-
-	// allocate for the worst case
-	results := make([]DiffResult, 0, len(db.files)+len(otherFiles))
-
-	// calculate results by merging two lists
-	i := 0
-	j := 0
-	for i < len(db.files) || j < len(otherFiles) {
-		var localFile *FileInfo
-		if i < len(db.files) {
-			localFile = db.files[i]
-		}
-
-		var remoteFile *FileInfo
-		if j < len(otherFiles) {
-			remoteFile = otherFiles[j]
-		}
-
-		if remoteFile == nil || (localFile != nil && localFile.Path() < remoteFile.Path()) {
-			results = append(results, DiffResult{
-				Result: DiffLocalAdded,
-				Local:  localFile,
-			})
-			i = i + 1
-		} else if localFile == nil || (remoteFile == nil && localFile.Path() > remoteFile.Path()) {
-			results = append(results, DiffResult{
-				Result: DiffRemoteAdded,
-				Remote: remoteFile,
-			})
-			j = j + 1
-		} else {
-			result := DiffResult{
-				Local:  localFile,
-				Remote: remoteFile,
-			}
-			i = i + 1
-			j = j + 1
-
-			if localFile.IsDeleted() && remoteFile.IsDeleted() {
-				result.Result = DiffEqual
-			} else if localFile.IsDeleted() {
-				result.Result = DiffLocalDeleted
-			} else if remoteFile.IsDeleted() {
-				result.Result = DiffRemoteDeleted
-			} else if localFile.Checksum() == remoteFile.Checksum() {
-				result.Result = DiffEqual
-			} else {
-				rightNewer := remoteFile.inheritsFrom(localFile.Checksum())
-				leftNewer := localFile.inheritsFrom(remoteFile.Checksum())
-
-				if rightNewer && leftNewer {
-					result.Result = DiffConflict
-				} else if rightNewer {
-					result.Result = DiffRemoteChanged
-				} else if leftNewer {
-					result.Result = DiffLocalChanged
-				} else {
-					result.Result = DiffConflict
-				}
-			}
-
-			results = append(results, result)
-		}
-	}
-
-	return results
-}
-
-// Diff2 ...
-func (db *db) Diff2(remote Boffin) []DiffResult {
+func (db *db) Diff(remote Boffin) []DiffResult {
 	localFiles := make(map[string]*FileInfo)
 	for _, localFile := range db.files {
 		localFile.checked = false

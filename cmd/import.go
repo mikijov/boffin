@@ -62,7 +62,7 @@ var importCmd = &cobra.Command{
 
 		exit := 0
 
-		for _, diff := range local.Diff2(remote) {
+		for _, diff := range local.Diff(remote) {
 			if diff.Result == lib.DiffEqual {
 				// fmt.Printf("=:%s\n", diff.Local.Path())
 			} else if diff.Result == lib.DiffLocalAdded {
