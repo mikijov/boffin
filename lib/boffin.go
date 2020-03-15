@@ -215,14 +215,6 @@ func FilesToHashMap(files []*FileInfo) map[string][]*FileInfo {
 	return fileMap
 }
 
-type toCheck struct {
-	path    string
-	relPath string
-	fi      os.FileInfo
-	hash    string
-	matched bool // TODO: remove after debugging
-}
-
 func CheckIfMetaChanged(info os.FileInfo, localFile *FileInfo) bool {
 	if localFile == nil {
 		return true
@@ -236,12 +228,12 @@ func ForceCheck(info os.FileInfo, local *FileInfo) bool {
 	return true
 }
 
-func (db *db) Update(filter FilterFunc) error {
+func (d *db) Update(filter FilterFunc) error {
 	if filter == nil {
 		filter = CheckIfMetaChanged
 	}
 
-	dir := db.GetBaseDir()
+	dir := d.GetBaseDir()
 
 	info, err := os.Stat(dir)
 	if err != nil {
@@ -252,13 +244,20 @@ func (db *db) Update(filter FilterFunc) error {
 	}
 
 	// TODO: can you optimise this into another loop?
-	for _, localFile := range db.files {
+	for _, localFile := range d.files {
 		localFile.checked = false
 	}
 
-	filesByPath := filesToPathMap(db.files)
+	localByPath := filesToPathMap(d.files)
 
-	filesToCheck := []*toCheck{}
+	checkedFiles := &db{
+		dbDir:        d.dbDir,
+		absBaseDir:   d.absBaseDir,
+		absImportDir: d.absImportDir,
+		baseDir:      d.baseDir,
+		importDir:    d.importDir,
+		files:        []*FileInfo{},
+	}
 
 	// # get list of files that should be checked
 	// - for each file on the file system
@@ -298,17 +297,29 @@ func (db *db) Update(filter FilterFunc) error {
 		//       - mark checked
 		//   - else
 		//     - put file in to-be-checked list
-		localFile, ok := filesByPath[relPath]
+		localFile, ok := localByPath[relPath]
 		if filter(info, localFile) {
-			filesToCheck = append(filesToCheck, &toCheck{
-				path:    path,
-				relPath: relPath,
-				fi:      info,
+			hash, err := CalculateChecksum(path)
+			if err != nil {
+				return err
+			}
+			log.Printf("%s: %s\n", hash, relPath)
+
+			checkedFiles.files = append(checkedFiles.files, &FileInfo{
+				History: []*FileEvent{
+					&FileEvent{
+						Type:     changed,
+						Path:     relPath,
+						Time:     info.ModTime(),
+						Size:     info.Size(),
+						Checksum: hash,
+					},
+				},
 			})
 		} else if ok {
 			localFile.checked = true
 			// fmt.Printf("=%s\n", localFile.Path())
-			delete(filesByPath, relPath)
+			delete(localByPath, relPath)
 		}
 
 		return nil
@@ -317,36 +328,14 @@ func (db *db) Update(filter FilterFunc) error {
 		return err
 	}
 
-	// # bulk calculate checksums
-	// - for each file in the to-be-checked list
-	//   - calculate checksum
-	//   - put checksum in the 'updates' map[hash][]result
-
-	updates := make(map[string][]*toCheck)
-
-	for _, f := range filesToCheck {
-		var err error
-		f.hash, err = CalculateChecksum(f.path)
-		if err != nil {
-			return err
-		}
-		log.Printf("%s: %s\n", f.hash, f.relPath)
-
-		hashes, found := updates[f.hash]
-		if found {
-			updates[f.hash] = append(hashes, f)
-		} else {
-			updates[f.hash] = []*toCheck{f}
-		}
-	}
-
-	filesByHash := FilesToHashMap(db.files)
+	localByHash := FilesToHashMap(d.files)
+	remoteByHash := FilesToHashMap(checkedFiles.files)
 
 	// # match everything you can using hashes
 	// - for each update
-	for hash, results := range updates {
+	for hash, remoteFiles := range remoteByHash {
 		//   - get current files with matching hashes
-		localFiles, found := filesByHash[hash]
+		localFiles, found := localByHash[hash]
 		// fmt.Printf("checking %s\n", hash)
 		//
 		// fmt.Printf("results\n")
@@ -375,23 +364,23 @@ func (db *db) Update(filter FilterFunc) error {
 				localFiles[lcount] = localFile
 				lcount++
 				rcount := 0
-				for _, result := range results {
-					if result.matched {
+				for _, result := range remoteFiles {
+					if result.checked {
 						panic("this should never happen:2:")
 					}
-					if localFile.Path() == result.relPath {
+					if localFile.Path() == result.Path() {
 						localFile.checked = true
-						result.matched = true
+						result.checked = true
 						lcount-- // effectively undo the localFiles[lcount] = localFile
 						// fmt.Printf("=%s\n", localFile.Path())
 					} else {
-						results[rcount] = result
+						remoteFiles[rcount] = result
 						rcount++
 					}
 				}
-				results = results[:rcount]
-				// fmt.Printf("results:1:\n")
-				// for _, result := range results {
+				remoteFiles = remoteFiles[:rcount]
+				// fmt.Printf("remoteFiles:1:\n")
+				// for _, result := range remoteFiles {
 				// 	fmt.Printf("  %s\n", result.relPath)
 				// }
 			}
@@ -418,30 +407,30 @@ func (db *db) Update(filter FilterFunc) error {
 				localFiles[lcount] = localFile
 				lcount++
 				rcount := 0
-				for _, result := range results {
-					if result.matched {
+				for _, result := range remoteFiles {
+					if result.checked {
 						panic("this should never happen:4:")
 					}
-					if filepath.Base(localFile.Path()) == filepath.Base(result.relPath) {
+					if filepath.Base(localFile.Path()) == filepath.Base(result.Path()) {
 						localFile.checked = true
-						result.matched = true
+						result.checked = true
 						lcount-- // effectively undo the localFiles[lcount] = localFile
-						fmt.Printf("~%s => %s\n", localFile.Path(), result.relPath)
+						fmt.Printf("~%s => %s\n", localFile.Path(), result.Path())
 						localFile.History = append(localFile.History, &FileEvent{
 							Type:     changed,
-							Path:     result.relPath,
-							Time:     result.fi.ModTime(),
-							Size:     result.fi.Size(),
-							Checksum: result.hash,
+							Path:     result.Path(),
+							Time:     result.Time(),
+							Size:     result.Size(),
+							Checksum: result.Checksum(),
 						})
 					} else {
-						results[rcount] = result
+						remoteFiles[rcount] = result
 						rcount++
 					}
 				}
-				results = results[:rcount]
-				// fmt.Printf("results:2:\n")
-				// for _, result := range results {
+				remoteFiles = remoteFiles[:rcount]
+				// fmt.Printf("remoteFiles:2:\n")
+				// for _, result := range remoteFiles {
 				// 	fmt.Printf("  %s\n", result.relPath)
 				// }
 			}
@@ -458,68 +447,68 @@ func (db *db) Update(filter FilterFunc) error {
 			//     - remove existing file from matching hashes
 			//     - remove result from update
 			// fmt.Printf("single match\n")
-			if len(localFiles) == 1 && len(results) == 1 {
+			if len(localFiles) == 1 && len(remoteFiles) == 1 {
 				localFile := localFiles[0]
-				result := results[0]
-				if localFile.checked || result.matched {
+				result := remoteFiles[0]
+				if localFile.checked || result.checked {
 					panic("this should never happen:5:")
 				}
-				fmt.Printf("~%s => %s\n", localFile.Path(), result.relPath)
+				fmt.Printf("~%s => %s\n", localFile.Path(), result.Path())
 				localFile.History = append(localFile.History, &FileEvent{
 					Type:     changed,
-					Path:     result.relPath,
-					Time:     result.fi.ModTime(),
-					Size:     result.fi.Size(),
-					Checksum: result.hash,
+					Path:     result.Path(),
+					Time:     result.Time(),
+					Size:     result.Size(),
+					Checksum: result.Checksum(),
 				})
 				localFile.checked = true
-				result.matched = true
+				result.checked = true
 
 				localFiles = localFiles[:0]
-				results = results[:0]
+				remoteFiles = remoteFiles[:0]
 			}
 
 			//   - if only updates remain
 			// fmt.Printf("only updates\n")
-			if len(localFiles) == 0 && len(results) > 0 {
+			if len(localFiles) == 0 && len(remoteFiles) > 0 {
 				//     - for every result in updates
 				//       - mark as new
 				//       - remove result from update
-				for _, result := range results {
-					if result.matched {
+				for _, result := range remoteFiles {
+					if result.checked {
 						panic("this should never happen:6:")
 					}
-					result.matched = true
-					fmt.Printf("+%s\n", result.relPath)
+					result.checked = true
+					fmt.Printf("+%s\n", result.Path())
 
-					db.files = append(db.files, &FileInfo{
+					d.files = append(d.files, &FileInfo{
 						History: []*FileEvent{
 							&FileEvent{
 								Type:     changed,
-								Path:     result.relPath,
-								Time:     result.fi.ModTime(),
-								Size:     result.fi.Size(),
-								Checksum: result.hash,
+								Path:     result.Path(),
+								Time:     result.Time(),
+								Size:     result.Size(),
+								Checksum: result.Checksum(),
 							},
 						},
 						checked: true, // new files are automatically checked
 					})
 				}
-				results = results[:0]
+				remoteFiles = remoteFiles[:0]
 			} else {
 				//   - else
 				//     - for every result in updates
 				//       - mark as conflict
 				//       - remove result from update
-				for _, result := range results {
-					if result.matched {
+				for _, result := range remoteFiles {
+					if result.checked {
 						panic("this should never happen:7:")
 					}
-					result.matched = true
-					fmt.Printf("!%s\n", result.relPath)
+					result.checked = true
+					fmt.Printf("!%s\n", result.Path())
 					// TODO: is it safe to continue here?
 				}
-				results = results[:0]
+				remoteFiles = remoteFiles[:0]
 				//     - for every current file in matching hashes
 				//       - mark as conflict
 				for _, localFile := range localFiles {
@@ -532,17 +521,17 @@ func (db *db) Update(filter FilterFunc) error {
 				}
 				localFiles = localFiles[:0]
 			}
-			// skip len(localFiles) > 0 && len(results) == 0 as deletes will be handled below
+			// skip len(localFiles) > 0 && len(remoteFiles) == 0 as deletes will be handled below
 		} // found
 
-		// update map with only unprocessed results
-		updates[hash] = results
+		// update map with only unprocessed remoteFiles
+		remoteByHash[hash] = remoteFiles
 
-		// no need to update filesByHash with updated localFiles as filesByHash is not used any more
+		// no need to update localByHash with updated localFiles as localByHash is not used any more
 	}
 
-	// regenerate filesByPath to account for any files matched by hash, i.e. moved
-	filesByPath = filesToPathMap(db.files)
+	// regenerate localByPath to account for any files matched by hash, i.e. moved
+	localByPath = filesToPathMap(d.files)
 
 	// # match everything you can using paths
 	// - for each update
@@ -552,12 +541,12 @@ func (db *db) Update(filter FilterFunc) error {
 	//   - else
 	//     - mark as new
 	// fmt.Printf("match by path\n")
-	for _, results := range updates {
-		for _, result := range results {
-			if result.matched {
+	for _, remoteFiles := range remoteByHash {
+		for _, result := range remoteFiles {
+			if result.checked {
 				panic("this should never happen:9:")
 			}
-			localFile, found := filesByPath[result.relPath]
+			localFile, found := localByPath[result.Path()]
 			if found {
 				if localFile.checked {
 					panic("this should never happen:10:")
@@ -566,21 +555,21 @@ func (db *db) Update(filter FilterFunc) error {
 				localFile.checked = true
 				localFile.History = append(localFile.History, &FileEvent{
 					Type:     changed,
-					Path:     result.relPath,
-					Time:     result.fi.ModTime(),
-					Size:     result.fi.Size(),
-					Checksum: result.hash,
+					Path:     result.Path(),
+					Time:     result.Time(),
+					Size:     result.Size(),
+					Checksum: result.Checksum(),
 				})
 			} else {
-				fmt.Printf("+%s\n", result.relPath)
-				db.files = append(db.files, &FileInfo{
+				fmt.Printf("+%s\n", result.Path())
+				d.files = append(d.files, &FileInfo{
 					History: []*FileEvent{
 						&FileEvent{
 							Type:     changed,
-							Path:     result.relPath,
-							Time:     result.fi.ModTime(),
-							Size:     result.fi.Size(),
-							Checksum: result.hash,
+							Path:     result.Path(),
+							Time:     result.Time(),
+							Size:     result.Size(),
+							Checksum: result.Checksum(),
 						},
 					},
 					checked: true, // new files are automatically checked
@@ -597,7 +586,7 @@ func (db *db) Update(filter FilterFunc) error {
 	//     - mark as deleted
 	//     - mark as checked
 	// fmt.Printf("unchecked\n")
-	for _, localFile := range db.files {
+	for _, localFile := range d.files {
 		if !localFile.checked && !localFile.IsDeleted() {
 			localFile.checked = true
 			fmt.Printf("-%s\n", localFile.Path())
