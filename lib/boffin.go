@@ -122,14 +122,14 @@ func (fi *FileInfo) IsDeleted() bool {
 	return fi.History[len(fi.History)-1].Checksum == ""
 }
 
-func (fi *FileInfo) inheritsFrom(checksum string) bool {
-	for _, event := range fi.History {
-		if event.Checksum == checksum {
-			return true
-		}
-	}
-	return false
-}
+// func (fi *FileInfo) inheritsFrom(checksum string) bool {
+// 	for _, event := range fi.History {
+// 		if event.Checksum == checksum {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
 
 func (fi *FileInfo) markDeleted() {
 	if !fi.IsDeleted() {
@@ -284,8 +284,7 @@ func (d *db) Update(filter FilterFunc) error {
 		root := path[:len(dir)]
 		if dir != root {
 			// this should never happen
-			// fmt.Printf("err1 %s\n", path)
-			return fmt.Errorf("unexpected error; root mismatch '%s' != '%s'", dir, root)
+			log.Panicf("unexpected error; root mismatch '%s' != '%s'", dir, root)
 		}
 
 		relPath := path[len(dir)+1:]
@@ -328,8 +327,79 @@ func (d *db) Update(filter FilterFunc) error {
 		return err
 	}
 
+	return d.Diff2(checkedFiles, &updateAction{})
+}
+
+type DiffAction interface {
+	Equal(localFile, remoteFile *FileInfo)
+	LocalOnly(localFile, remoteFile *FileInfo)
+	RemoteOnly(localFile, remoteFile *FileInfo)
+	LocalDeleted(localFile, remoteFile *FileInfo)
+	RemoteDeleted(localFile, remoteFile *FileInfo)
+	LocalChanged(localFile, remoteFile *FileInfo)
+	RemoteChanged(localFile, remoteFile *FileInfo)
+	Conflict(localFile, remoteFile *FileInfo)
+}
+
+type updateAction struct {
+}
+
+func (a *updateAction) Equal(localFile, remoteFile *FileInfo) {
+	fmt.Printf("=%s\n", localFile.Path())
+}
+
+func (a *updateAction) LocalOnly(localFile, remoteFile *FileInfo) {
+	fmt.Printf("-%s\n", localFile.Path())
+	localFile.markDeleted()
+}
+
+func (a *updateAction) RemoteOnly(localFile, remoteFile *FileInfo) {
+	fmt.Printf("+%s\n", remoteFile.Path())
+
+	localFile.History = append(localFile.History, &FileEvent{
+		Type:     changed,
+		Path:     remoteFile.Path(),
+		Time:     remoteFile.Time(),
+		Size:     remoteFile.Size(),
+		Checksum: remoteFile.Checksum(),
+	})
+}
+
+func (a *updateAction) LocalDeleted(localFile, remoteFile *FileInfo) {
+	panic("local deleted should never happen for updateAction")
+}
+
+func (a *updateAction) RemoteDeleted(localFile, remoteFile *FileInfo) {
+	panic("remote deleted should never happen for updateAction")
+}
+
+func (a *updateAction) LocalChanged(localFile, remoteFile *FileInfo) {
+	panic("local changed should never happen for updateAction")
+}
+
+func (a *updateAction) RemoteChanged(localFile, remoteFile *FileInfo) {
+	fmt.Printf("~%s => %s\n", localFile.Path(), remoteFile.Path())
+	localFile.History = append(localFile.History, &FileEvent{
+		Type:     changed,
+		Path:     remoteFile.Path(),
+		Time:     remoteFile.Time(),
+		Size:     remoteFile.Size(),
+		Checksum: remoteFile.Checksum(),
+	})
+}
+
+func (a *updateAction) Conflict(localFile, remoteFile *FileInfo) {
+	if localFile != nil {
+		fmt.Printf("!%s\n", localFile.Path())
+	}
+	if remoteFile != nil {
+		fmt.Printf("!%s\n", remoteFile.Path())
+	}
+}
+
+func (d *db) Diff2(remote Boffin, action DiffAction) error {
 	localByHash := FilesToHashMap(d.files)
-	remoteByHash := FilesToHashMap(checkedFiles.files)
+	remoteByHash := FilesToHashMap(remote.GetFiles())
 
 	// # match everything you can using hashes
 	// - for each update
@@ -372,7 +442,7 @@ func (d *db) Update(filter FilterFunc) error {
 						localFile.checked = true
 						result.checked = true
 						lcount-- // effectively undo the localFiles[lcount] = localFile
-						// fmt.Printf("=%s\n", localFile.Path())
+						action.Equal(localFile, result)
 					} else {
 						remoteFiles[rcount] = result
 						rcount++
@@ -415,14 +485,7 @@ func (d *db) Update(filter FilterFunc) error {
 						localFile.checked = true
 						result.checked = true
 						lcount-- // effectively undo the localFiles[lcount] = localFile
-						fmt.Printf("~%s => %s\n", localFile.Path(), result.Path())
-						localFile.History = append(localFile.History, &FileEvent{
-							Type:     changed,
-							Path:     result.Path(),
-							Time:     result.Time(),
-							Size:     result.Size(),
-							Checksum: result.Checksum(),
-						})
+						action.RemoteChanged(localFile, result)
 					} else {
 						remoteFiles[rcount] = result
 						rcount++
@@ -453,16 +516,9 @@ func (d *db) Update(filter FilterFunc) error {
 				if localFile.checked || result.checked {
 					panic("this should never happen:5:")
 				}
-				fmt.Printf("~%s => %s\n", localFile.Path(), result.Path())
-				localFile.History = append(localFile.History, &FileEvent{
-					Type:     changed,
-					Path:     result.Path(),
-					Time:     result.Time(),
-					Size:     result.Size(),
-					Checksum: result.Checksum(),
-				})
 				localFile.checked = true
 				result.checked = true
+				action.RemoteChanged(localFile, result)
 
 				localFiles = localFiles[:0]
 				remoteFiles = remoteFiles[:0]
@@ -479,20 +535,11 @@ func (d *db) Update(filter FilterFunc) error {
 						panic("this should never happen:6:")
 					}
 					result.checked = true
-					fmt.Printf("+%s\n", result.Path())
-
-					d.files = append(d.files, &FileInfo{
-						History: []*FileEvent{
-							&FileEvent{
-								Type:     changed,
-								Path:     result.Path(),
-								Time:     result.Time(),
-								Size:     result.Size(),
-								Checksum: result.Checksum(),
-							},
-						},
-						checked: true, // new files are automatically checked
-					})
+					fi := &FileInfo{
+						checked: true,
+					}
+					d.files = append(d.files, fi)
+					action.RemoteOnly(fi, result)
 				}
 				remoteFiles = remoteFiles[:0]
 			} else {
@@ -505,7 +552,7 @@ func (d *db) Update(filter FilterFunc) error {
 						panic("this should never happen:7:")
 					}
 					result.checked = true
-					fmt.Printf("!%s\n", result.Path())
+					action.Conflict(nil, result)
 					// TODO: is it safe to continue here?
 				}
 				remoteFiles = remoteFiles[:0]
@@ -516,7 +563,7 @@ func (d *db) Update(filter FilterFunc) error {
 						panic("this should never happen:8:")
 					}
 					localFile.checked = true
-					fmt.Printf("!%s\n", localFile.Path())
+					action.Conflict(localFile, nil)
 					// TODO: is it safe to continue here?
 				}
 				localFiles = localFiles[:0]
@@ -531,7 +578,7 @@ func (d *db) Update(filter FilterFunc) error {
 	}
 
 	// regenerate localByPath to account for any files matched by hash, i.e. moved
-	localByPath = filesToPathMap(d.files)
+	localByPath := filesToPathMap(d.files)
 
 	// # match everything you can using paths
 	// - for each update
@@ -551,29 +598,15 @@ func (d *db) Update(filter FilterFunc) error {
 				if localFile.checked {
 					panic("this should never happen:10:")
 				}
-				fmt.Printf("~%s\n", localFile.Path())
 				localFile.checked = true
-				localFile.History = append(localFile.History, &FileEvent{
-					Type:     changed,
-					Path:     result.Path(),
-					Time:     result.Time(),
-					Size:     result.Size(),
-					Checksum: result.Checksum(),
-				})
+				action.RemoteChanged(localFile, result)
 			} else {
 				fmt.Printf("+%s\n", result.Path())
-				d.files = append(d.files, &FileInfo{
-					History: []*FileEvent{
-						&FileEvent{
-							Type:     changed,
-							Path:     result.Path(),
-							Time:     result.Time(),
-							Size:     result.Size(),
-							Checksum: result.Checksum(),
-						},
-					},
-					checked: true, // new files are automatically checked
-				})
+				fi := &FileInfo{
+					checked: true,
+				}
+				d.files = append(d.files, fi)
+				action.RemoteOnly(fi, result)
 			}
 		}
 	}
@@ -589,8 +622,7 @@ func (d *db) Update(filter FilterFunc) error {
 	for _, localFile := range d.files {
 		if !localFile.checked && !localFile.IsDeleted() {
 			localFile.checked = true
-			fmt.Printf("-%s\n", localFile.Path())
-			localFile.markDeleted()
+			action.LocalOnly(localFile, nil)
 		}
 	}
 
