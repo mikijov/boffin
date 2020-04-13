@@ -104,6 +104,9 @@ modified.
 
 ### diff algorithm
 
+
+    - match files with the same name 
+
     - for each file in the remote repo that is not deleted
       - if hash exists in the local repo and is not deleted
 
