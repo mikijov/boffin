@@ -1060,6 +1060,51 @@ func TestDiff3(t *testing.T) {
 					},
 				},
 			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "added-local",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "added-local-hash-1",
+					},
+				},
+			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "added-local2",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "added-local2-hash-1",
+					},
+					&FileEvent{
+						Path:     "added-local2",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "added-local2-hash-2",
+					},
+				},
+			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "hanging-delete-local",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "hanging-delete-local-hash-1",
+					},
+					&FileEvent{
+						Path: "hanging-delete-local",
+						Type: "deleted",
+						Time: parseTime("2020-01-02T12:34:56Z"),
+					},
+				},
+			},
 		},
 	}
 	var remote Boffin = &db{
@@ -1115,6 +1160,51 @@ func TestDiff3(t *testing.T) {
 					},
 				},
 			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "added-remote",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "added-remote-hash-1",
+					},
+				},
+			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "added-remote2",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "added-remote2-hash-1",
+					},
+					&FileEvent{
+						Path:     "added-remote2",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "added-remote2-hash-2",
+					},
+				},
+			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "hanging-delete-remote",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "hanging-delete-remote-hash-1",
+					},
+					&FileEvent{
+						Path: "hanging-delete-remote",
+						Type: "deleted",
+						Time: parseTime("2020-01-02T12:34:56Z"),
+					},
+				},
+			},
 		},
 	}
 
@@ -1123,6 +1213,12 @@ func TestDiff3(t *testing.T) {
 		{Result: "unchanged", Local: []string{"equal2"}, Remote: []string{"equal2"}},
 		{Result: "unchanged", Local: []string{"equal3"}, Remote: []string{"equal3"}},
 		{Result: "moved", Local: []string{"renamed-local"}, Remote: []string{"renamed-remote"}},
+		{Result: "local-only", Local: []string{"hanging-delete-local"}},
+		{Result: "local-only", Local: []string{"added-local"}},
+		{Result: "local-only", Local: []string{"added-local2"}},
+		{Result: "remote-only", Remote: []string{"hanging-delete-remote"}},
+		{Result: "remote-only", Remote: []string{"added-remote"}},
+		{Result: "remote-only", Remote: []string{"added-remote2"}},
 	}
 
 	var actual testAction

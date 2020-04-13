@@ -50,7 +50,6 @@ type FileEvent struct {
 // FileInfo ...
 type FileInfo struct {
 	History []*FileEvent `json:"history,omitempty"`
-	checked bool
 }
 
 type FilterFunc func(info os.FileInfo, local *FileInfo) bool
@@ -67,6 +66,18 @@ type Boffin interface {
 	Sort()
 	// Update(filter FilterFunc) error
 	Diff3(remote Boffin, action DiffAction) error
+}
+
+type DiffAction interface {
+	Unchanged(localFile, remoteFile *FileInfo)
+	Moved(localFile, remoteFile *FileInfo)
+	LocalOnly(localFile *FileInfo)
+	RemoteOnly(remoteFile *FileInfo)
+	LocalDeleted(localFile, remoteFile *FileInfo)
+	RemoteDeleted(localFile, remoteFile *FileInfo)
+	LocalChanged(localFile, remoteFile *FileInfo)
+	RemoteChanged(localFile, remoteFile *FileInfo)
+	Conflict(localFile, remoteFile []*FileInfo)
 }
 
 // Checksum ...
@@ -189,7 +200,7 @@ func filesToPathMap(files []*FileInfo) map[string]*FileInfo {
 	fileMap := make(map[string]*FileInfo)
 
 	for _, file := range files {
-		if !file.checked && !file.IsDeleted() {
+		if !file.IsDeleted() {
 			fileMap[file.Path()] = file
 		}
 	}
@@ -202,7 +213,7 @@ func filesToHashMap(files []*FileInfo) map[string][]*FileInfo {
 	fileMap := make(map[string][]*FileInfo)
 
 	for _, file := range files {
-		if !file.checked && !file.IsDeleted() {
+		if !file.IsDeleted() {
 			fi, found := fileMap[file.Checksum()]
 			if found {
 				fileMap[file.Checksum()] = append(fi, file)
@@ -330,18 +341,6 @@ func ForceCheck(info os.FileInfo, local *FileInfo) bool {
 // 	return d.Diff2(checkedFiles, &updateAction{})
 // }
 
-type DiffAction interface {
-	Unchanged(localFile, remoteFile *FileInfo)
-	Moved(localFile, remoteFile *FileInfo)
-	LocalOnly(localFile *FileInfo)
-	RemoteOnly(remoteFile *FileInfo)
-	LocalDeleted(localFile, remoteFile *FileInfo)
-	RemoteDeleted(localFile, remoteFile *FileInfo)
-	LocalChanged(localFile, remoteFile *FileInfo)
-	RemoteChanged(localFile, remoteFile *FileInfo)
-	Conflict(localFile, remoteFile []*FileInfo)
-}
-
 // type updateAction struct {
 // }
 //
@@ -403,14 +402,22 @@ func (d *db) Diff3(remote Boffin, action DiffAction) error {
 	remoteFiles := remote.GetFiles()
 	var err error
 
-	localFiles, remoteFiles, err = matchRemoteToLocalUsingPathAndCurrentHashes(localFiles, remoteFiles, action)    // equal
-	localFiles, remoteFiles, err = matchRemoteToLocalUsingCurrentHashes(localFiles, remoteFiles, action)           // moved/renamed
-	localFiles, remoteFiles, err = matchCurrentRemoteToHistoricalLocalUsingHashes(localFiles, remoteFiles, action) // moved/renamed and changed; conflict if multiple matches
-	localFiles, remoteFiles, err = matchCurrentLocalToHistoricalRemoteUsingHashed(localFiles, remoteFiles, action) // moved/renamed and changed; conflict if multiple matches
-	localFiles, remoteFiles, err = matchLocalToRemoteUsingHistoricalHashes(localFiles, remoteFiles, action)        // conflict
-	localFiles, remoteFiles, err = matchRemoteToLocalUsingHistoricalHashes(localFiles, remoteFiles, action)        // conflict
-	localFiles, remoteFiles, err = matchLocalToRemoteUsingPath(localFiles, remoteFiles, action)                    // conflict
-	localFiles, remoteFiles, err = matchRemoteToLocalUsingPath(localFiles, remoteFiles, action)                    // conflict
+	localFiles, remoteFiles, err =
+		matchRemoteToLocalUsingPathAndCurrentHashes(localFiles, remoteFiles, action) // equal
+	localFiles, remoteFiles, err =
+		matchRemoteToLocalUsingCurrentHashes(localFiles, remoteFiles, action) // moved/renamed
+	localFiles, remoteFiles, err =
+		matchCurrentRemoteToHistoricalLocalUsingHashes(localFiles, remoteFiles, action) // moved/renamed and changed; conflict if multiple matches
+	localFiles, remoteFiles, err =
+		matchCurrentLocalToHistoricalRemoteUsingHashed(localFiles, remoteFiles, action) // moved/renamed and changed; conflict if multiple matches
+	localFiles, remoteFiles, err =
+		matchLocalToRemoteUsingHistoricalHashes(localFiles, remoteFiles, action) // conflict
+	localFiles, remoteFiles, err =
+		matchRemoteToLocalUsingHistoricalHashes(localFiles, remoteFiles, action) // conflict
+	localFiles, remoteFiles, err =
+		matchLocalToRemoteUsingPath(localFiles, remoteFiles, action) // conflict
+	localFiles, remoteFiles, err =
+		matchRemoteToLocalUsingPath(localFiles, remoteFiles, action) // conflict
 
 	for _, file := range localFiles {
 		action.LocalOnly(file)
@@ -425,6 +432,7 @@ func (d *db) Diff3(remote Boffin, action DiffAction) error {
 // Match all files that have identical paths and current hashes and report them
 // as equal/unchanged.
 func matchRemoteToLocalUsingPathAndCurrentHashes(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
+	// sort by path to merge lists easily
 	sort.Slice(local, func(i, j int) bool {
 		return local[i].Path() < local[j].Path()
 	})
@@ -437,6 +445,7 @@ func matchRemoteToLocalUsingPathAndCurrentHashes(local, remote []*FileInfo, acti
 	i, j := 0, 0
 	for {
 		cmp := strings.Compare(local[i].Path(), remote[j].Path())
+		// if paths are different just mark them for further processing
 		if cmp < 0 {
 			newLocal = append(newLocal, local[i])
 			i++
@@ -450,7 +459,9 @@ func matchRemoteToLocalUsingPathAndCurrentHashes(local, remote []*FileInfo, acti
 				break
 			}
 		} else {
-			if local[i].Checksum() == remote[j].Checksum() {
+			// if paths match, are not deleted and checksums match, mark them equal
+			if !local[i].IsDeleted() && !remote[j].IsDeleted() &&
+				local[i].Checksum() == remote[j].Checksum() {
 				action.Unchanged(local[i], remote[j])
 			} else {
 				newLocal = append(newLocal, local[i])
@@ -469,6 +480,8 @@ func matchRemoteToLocalUsingPathAndCurrentHashes(local, remote []*FileInfo, acti
 		}
 	}
 
+	// add any elements that might not have been processed by the loop, as often
+	// one list is shorter than the other
 	newLocal = append(newLocal, local[i:]...)
 	newRemote = append(newRemote, remote[j:]...)
 
@@ -479,9 +492,21 @@ func matchRemoteToLocalUsingPathAndCurrentHashes(local, remote []*FileInfo, acti
 // paths, and mark them as moved/renamed. In case of multiple matches, report
 // them as conflict.
 func matchRemoteToLocalUsingCurrentHashes(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
+	// copy all deleted files as we will not be handling them
 	newLocal = make([]*FileInfo, 0, len(local))
+	for _, file := range local {
+		if file.IsDeleted() {
+			newLocal = append(newLocal, file)
+		}
+	}
 	newRemote = make([]*FileInfo, 0, len(remote))
+	for _, file := range remote {
+		if file.IsDeleted() {
+			newRemote = append(newRemote, file)
+		}
+	}
 
+	// maps do not include deleted files
 	localByHash := filesToHashMap(local)
 	remoteByHash := filesToHashMap(remote)
 
