@@ -197,8 +197,8 @@ func filesToPathMap(files []*FileInfo) map[string]*FileInfo {
 	return fileMap
 }
 
-// FilesToHashMap ...
-func FilesToHashMap(files []*FileInfo) map[string][]*FileInfo {
+// filesToHashMap ...
+func filesToHashMap(files []*FileInfo) map[string][]*FileInfo {
 	fileMap := make(map[string][]*FileInfo)
 
 	for _, file := range files {
@@ -331,9 +331,10 @@ func ForceCheck(info os.FileInfo, local *FileInfo) bool {
 // }
 
 type DiffAction interface {
-	Equal(localFile, remoteFile *FileInfo)
-	LocalAdded(localFile *FileInfo)
-	RemoteAdded(remoteFile *FileInfo)
+	Unchanged(localFile, remoteFile *FileInfo)
+	Moved(localFile, remoteFile *FileInfo)
+	LocalOnly(localFile *FileInfo)
+	RemoteOnly(remoteFile *FileInfo)
 	LocalDeleted(localFile, remoteFile *FileInfo)
 	RemoteDeleted(localFile, remoteFile *FileInfo)
 	LocalChanged(localFile, remoteFile *FileInfo)
@@ -348,11 +349,11 @@ type DiffAction interface {
 // 	fmt.Printf("=%s\n", localFile.Path())
 // }
 //
-// func (a *updateAction) LocalAdded(localFile *FileInfo) {
+// func (a *updateAction) LocalOnly(localFile *FileInfo) {
 // 	panic("local added should never happen for updateAction")
 // }
 //
-// func (a *updateAction) RemoteAdded(remoteFile *FileInfo) {
+// func (a *updateAction) RemoteOnly(remoteFile *FileInfo) {
 // 	fmt.Printf("+%s\n", remoteFile.Path())
 //
 // 	localFile.History = append(localFile.History, &FileEvent{
@@ -412,15 +413,17 @@ func (d *db) Diff3(remote Boffin, action DiffAction) error {
 	localFiles, remoteFiles, err = matchRemoteToLocalUsingPath(localFiles, remoteFiles, action)                    // conflict
 
 	for _, file := range localFiles {
-		action.LocalAdded(file)
+		action.LocalOnly(file)
 	}
 	for _, file := range remoteFiles {
-		action.RemoteAdded(file)
+		action.RemoteOnly(file)
 	}
 
 	return err
 }
 
+// Match all files that have identical paths and current hashes and report them
+// as equal/unchanged.
 func matchRemoteToLocalUsingPathAndCurrentHashes(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
 	sort.Slice(local, func(i, j int) bool {
 		return local[i].Path() < local[j].Path()
@@ -448,7 +451,7 @@ func matchRemoteToLocalUsingPathAndCurrentHashes(local, remote []*FileInfo, acti
 			}
 		} else {
 			if local[i].Checksum() == remote[j].Checksum() {
-				action.Equal(local[i], remote[j])
+				action.Unchanged(local[i], remote[j])
 			} else {
 				newLocal = append(newLocal, local[i])
 				newRemote = append(newRemote, remote[j])
@@ -466,11 +469,43 @@ func matchRemoteToLocalUsingPathAndCurrentHashes(local, remote []*FileInfo, acti
 		}
 	}
 
+	newLocal = append(newLocal, local[i:]...)
+	newRemote = append(newRemote, remote[j:]...)
+
 	return newLocal, newRemote, nil
 }
 
+// Match all files that have identical current hashes but different current
+// paths, and mark them as moved/renamed. In case of multiple matches, report
+// them as conflict.
 func matchRemoteToLocalUsingCurrentHashes(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
-	return local, remote, nil
+	newLocal = make([]*FileInfo, 0, len(local))
+	newRemote = make([]*FileInfo, 0, len(remote))
+
+	localByHash := filesToHashMap(local)
+	remoteByHash := filesToHashMap(remote)
+
+	for hash, localFiles := range localByHash {
+		remoteFiles, match := remoteByHash[hash]
+		if match {
+			if len(localFiles) == 1 && len(remoteFiles) == 1 {
+				action.Moved(localFiles[0], remoteFiles[0])
+			} else {
+				newLocal = append(newLocal, localFiles...)
+				newRemote = append(newRemote, remoteFiles...)
+			}
+
+			delete(remoteByHash, hash)
+		} else {
+			newLocal = append(newLocal, localFiles...)
+		}
+	}
+
+	for _, remoteFiles := range remoteByHash {
+		newRemote = append(newRemote, remoteFiles...)
+	}
+
+	return newLocal, newRemote, nil
 }
 
 func matchCurrentRemoteToHistoricalLocalUsingHashes(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
@@ -498,8 +533,8 @@ func matchRemoteToLocalUsingPath(local, remote []*FileInfo, action DiffAction) (
 }
 
 // func (d *db) Diff2(remote Boffin, action DiffAction) error {
-// 	localByHash := FilesToHashMap(d.files)
-// 	remoteByHash := FilesToHashMap(remote.GetFiles())
+// 	localByHash := filesToHashMap(d.files)
+// 	remoteByHash := filesToHashMap(remote.GetFiles())
 //
 // 	// # match everything you can using hashes
 // 	// - for each update
@@ -639,7 +674,7 @@ func matchRemoteToLocalUsingPath(local, remote []*FileInfo, action DiffAction) (
 // 					// 	checked: true,
 // 					// }
 // 					// d.files = append(d.files, fi)
-// 					action.RemoteAdded(nil, result)
+// 					action.RemoteOnly(nil, result)
 // 				}
 // 				remoteFiles = remoteFiles[:0]
 // 			} else {
@@ -706,7 +741,7 @@ func matchRemoteToLocalUsingPath(local, remote []*FileInfo, action DiffAction) (
 // 					checked: true,
 // 				}
 // 				d.files = append(d.files, fi)
-// 				action.RemoteAdded(fi, result)
+// 				action.RemoteOnly(fi, result)
 // 			}
 // 		}
 // 	}
@@ -729,99 +764,99 @@ func matchRemoteToLocalUsingPath(local, remote []*FileInfo, action DiffAction) (
 // 	return nil
 // }
 
-const (
-	// DiffEqual indicates that files in both repositories are identical.
-	DiffEqual = iota
-	// DiffLocalAdded indicates that file exists only in the local repository.
-	DiffLocalAdded
-	// DiffLocalChanged indicates that file has been changed in the local repository.
-	DiffLocalChanged
-	// DiffLocalDeleted indicates that file has been deleted in the local repository.
-	DiffLocalDeleted
-	// DiffRemoteAdded indicates that file exists only in the remote repository.
-	DiffRemoteAdded
-	// DiffRemoteChanged indicates that file has been changed in the remote repository.
-	DiffRemoteChanged
-	// DiffRemoteDeleted indicates that file has been deleted in the remote repository.
-	DiffRemoteDeleted
-	// DiffConflict indicates that file has changed in both repositories.
-	DiffConflict
-)
-
-// DiffResult ...
-type DiffResult struct {
-	Result int
-	Local  *FileInfo
-	Remote *FileInfo
-}
-
-type diffAction struct {
-	results []DiffResult
-}
-
-func (a *diffAction) Equal(localFile, remoteFile *FileInfo) {
-	a.results = append(a.results, DiffResult{
-		Result: DiffEqual,
-		Local:  localFile,
-		Remote: remoteFile,
-	})
-}
-
-func (a *diffAction) LocalAdded(localFile, remoteFile *FileInfo) {
-	a.results = append(a.results, DiffResult{
-		Result: DiffLocalAdded,
-		Local:  localFile,
-		Remote: remoteFile,
-	})
-}
-
-func (a *diffAction) RemoteAdded(localFile, remoteFile *FileInfo) {
-	a.results = append(a.results, DiffResult{
-		Result: DiffRemoteAdded,
-		Local:  localFile,
-		Remote: remoteFile,
-	})
-}
-
-func (a *diffAction) LocalDeleted(localFile, remoteFile *FileInfo) {
-	a.results = append(a.results, DiffResult{
-		Result: DiffLocalDeleted,
-		Local:  localFile,
-		Remote: remoteFile,
-	})
-}
-
-func (a *diffAction) RemoteDeleted(localFile, remoteFile *FileInfo) {
-	a.results = append(a.results, DiffResult{
-		Result: DiffRemoteDeleted,
-		Local:  localFile,
-		Remote: remoteFile,
-	})
-}
-
-func (a *diffAction) LocalChanged(localFile, remoteFile *FileInfo) {
-	a.results = append(a.results, DiffResult{
-		Result: DiffLocalChanged,
-		Local:  localFile,
-		Remote: remoteFile,
-	})
-}
-
-func (a *diffAction) RemoteChanged(localFile, remoteFile *FileInfo) {
-	a.results = append(a.results, DiffResult{
-		Result: DiffRemoteChanged,
-		Local:  localFile,
-		Remote: remoteFile,
-	})
-}
-
-func (a *diffAction) Conflict(localFile, remoteFile *FileInfo) {
-	a.results = append(a.results, DiffResult{
-		Result: DiffConflict,
-		Local:  localFile,
-		Remote: remoteFile,
-	})
-}
+// const (
+// 	// DiffUnchanged indicates that files in both repositories are identical.
+// 	DiffUnchanged = iota
+// 	// DiffLocalOnly indicates that file exists only in the local repository.
+// 	DiffLocalOnly
+// 	// DiffLocalChanged indicates that file has been changed in the local repository.
+// 	DiffLocalChanged
+// 	// DiffLocalDeleted indicates that file has been deleted in the local repository.
+// 	DiffLocalDeleted
+// 	// DiffRemoteOnly indicates that file exists only in the remote repository.
+// 	DiffRemoteOnly
+// 	// DiffRemoteChanged indicates that file has been changed in the remote repository.
+// 	DiffRemoteChanged
+// 	// DiffRemoteDeleted indicates that file has been deleted in the remote repository.
+// 	DiffRemoteDeleted
+// 	// DiffConflict indicates that file has changed in both repositories.
+// 	DiffConflict
+// )
+//
+// // DiffResult ...
+// type DiffResult struct {
+// 	Result int
+// 	Local  *FileInfo
+// 	Remote *FileInfo
+// }
+//
+// type diffAction struct {
+// 	results []DiffResult
+// }
+//
+// func (a *diffAction) Equal(localFile, remoteFile *FileInfo) {
+// 	a.results = append(a.results, DiffResult{
+// 		Result: DiffUnchanged,
+// 		Local:  localFile,
+// 		Remote: remoteFile,
+// 	})
+// }
+//
+// func (a *diffAction) LocalOnly(localFile, remoteFile *FileInfo) {
+// 	a.results = append(a.results, DiffResult{
+// 		Result: DiffLocalOnly,
+// 		Local:  localFile,
+// 		Remote: remoteFile,
+// 	})
+// }
+//
+// func (a *diffAction) RemoteOnly(localFile, remoteFile *FileInfo) {
+// 	a.results = append(a.results, DiffResult{
+// 		Result: DiffRemoteOnly,
+// 		Local:  localFile,
+// 		Remote: remoteFile,
+// 	})
+// }
+//
+// func (a *diffAction) LocalDeleted(localFile, remoteFile *FileInfo) {
+// 	a.results = append(a.results, DiffResult{
+// 		Result: DiffLocalDeleted,
+// 		Local:  localFile,
+// 		Remote: remoteFile,
+// 	})
+// }
+//
+// func (a *diffAction) RemoteDeleted(localFile, remoteFile *FileInfo) {
+// 	a.results = append(a.results, DiffResult{
+// 		Result: DiffRemoteDeleted,
+// 		Local:  localFile,
+// 		Remote: remoteFile,
+// 	})
+// }
+//
+// func (a *diffAction) LocalChanged(localFile, remoteFile *FileInfo) {
+// 	a.results = append(a.results, DiffResult{
+// 		Result: DiffLocalChanged,
+// 		Local:  localFile,
+// 		Remote: remoteFile,
+// 	})
+// }
+//
+// func (a *diffAction) RemoteChanged(localFile, remoteFile *FileInfo) {
+// 	a.results = append(a.results, DiffResult{
+// 		Result: DiffRemoteChanged,
+// 		Local:  localFile,
+// 		Remote: remoteFile,
+// 	})
+// }
+//
+// func (a *diffAction) Conflict(localFile, remoteFile *FileInfo) {
+// 	a.results = append(a.results, DiffResult{
+// 		Result: DiffConflict,
+// 		Local:  localFile,
+// 		Remote: remoteFile,
+// 	})
+// }
 
 // // Diff ...
 // func (db *db) Diff(remote Boffin) []DiffResult {
@@ -885,7 +920,7 @@ func (a *diffAction) Conflict(localFile, remoteFile *FileInfo) {
 // 			//     - if match is current file version in local repo
 // 			if remoteFile.IsDeleted() && localFile.IsDeleted() {
 // 				results = append(results, DiffResult{
-// 					Result: DiffEqual,
+// 					Result: DiffUnchanged,
 // 					Local:  localFile,
 // 					Remote: remoteFile,
 // 				})
@@ -898,7 +933,7 @@ func (a *diffAction) Conflict(localFile, remoteFile *FileInfo) {
 // 				})
 // 			} else if remoteFile.Checksum() == localFile.Checksum() {
 // 				results = append(results, DiffResult{
-// 					Result: DiffEqual,
+// 					Result: DiffUnchanged,
 // 					Local:  localFile,
 // 					Remote: remoteFile,
 // 				})
@@ -968,12 +1003,12 @@ func (a *diffAction) Conflict(localFile, remoteFile *FileInfo) {
 // 				if remoteFile.IsDeleted() {
 // 					// TODO: keep history?
 // 					results = append(results, DiffResult{
-// 						Result: DiffEqual,
+// 						Result: DiffUnchanged,
 // 						Remote: remoteFile,
 // 					})
 // 				} else {
 // 					results = append(results, DiffResult{
-// 						Result: DiffRemoteAdded,
+// 						Result: DiffRemoteOnly,
 // 						Remote: remoteFile,
 // 					})
 // 				}
@@ -986,7 +1021,7 @@ func (a *diffAction) Conflict(localFile, remoteFile *FileInfo) {
 // 	//     - if deleted
 // 	//       - 'LocalDeleted'
 // 	//     - else
-// 	//       - 'LocalAdded'
+// 	//       - 'LocalOnly'
 // 	for _, localFile := range db.files {
 // 		if !localFile.checked {
 // 			if localFile.IsDeleted() {
@@ -996,7 +1031,7 @@ func (a *diffAction) Conflict(localFile, remoteFile *FileInfo) {
 // 				})
 // 			} else {
 // 				results = append(results, DiffResult{
-// 					Result: DiffLocalAdded,
+// 					Result: DiffLocalOnly,
 // 					Local:  localFile,
 // 				})
 // 			}
@@ -1250,15 +1285,15 @@ func CalculateChecksum(path string) (string, error) {
 
 // func printDiff(diffs []DiffResult) {
 // 	for _, diff := range diffs {
-// 		if diff.Result == DiffEqual {
+// 		if diff.Result == DiffUnchanged {
 // 			if diff.Local != nil {
 // 				fmt.Printf("=:%s\n", diff.Local.Path())
 // 			} else {
 // 				fmt.Printf("=:%s\n", diff.Remote.Path())
 // 			}
-// 		} else if diff.Result == DiffLocalAdded {
+// 		} else if diff.Result == DiffLocalOnly {
 // 			fmt.Printf("L:%s\n", diff.Local.Path())
-// 		} else if diff.Result == DiffRemoteAdded {
+// 		} else if diff.Result == DiffRemoteOnly {
 // 			fmt.Printf("R:%s\n", diff.Remote.Path())
 // 		} else if diff.Result == DiffLocalDeleted {
 // 			fmt.Printf("+:%s\n", diff.Local.Path())

@@ -26,7 +26,7 @@ func parseTime(s string) time.Time {
 }
 
 type result struct {
-	Result int
+	Result string
 	Local  []string
 	Remote []string
 }
@@ -35,25 +35,33 @@ type testAction struct {
 	Result []*result
 }
 
-func (t *testAction) Equal(localFile, remoteFile *FileInfo) {
+func (t *testAction) Unchanged(localFile, remoteFile *FileInfo) {
 	t.Result = append(t.Result, &result{
-		Result: DiffEqual,
+		Result: "unchanged",
 		Local:  []string{localFile.Path()},
 		Remote: []string{remoteFile.Path()},
 	})
 }
 
-func (t *testAction) LocalAdded(localFile *FileInfo) {
+func (t *testAction) Moved(localFile, remoteFile *FileInfo) {
 	t.Result = append(t.Result, &result{
-		Result: DiffLocalAdded,
+		Result: "moved",
+		Local:  []string{localFile.Path()},
+		Remote: []string{remoteFile.Path()},
+	})
+}
+
+func (t *testAction) LocalOnly(localFile *FileInfo) {
+	t.Result = append(t.Result, &result{
+		Result: "local-only",
 		Local:  []string{localFile.Path()},
 		Remote: nil,
 	})
 }
 
-func (t *testAction) RemoteAdded(remoteFile *FileInfo) {
+func (t *testAction) RemoteOnly(remoteFile *FileInfo) {
 	t.Result = append(t.Result, &result{
-		Result: DiffRemoteAdded,
+		Result: "remote-only",
 		Local:  nil,
 		Remote: []string{remoteFile.Path()},
 	})
@@ -61,7 +69,7 @@ func (t *testAction) RemoteAdded(remoteFile *FileInfo) {
 
 func (t *testAction) LocalDeleted(localFile, remoteFile *FileInfo) {
 	t.Result = append(t.Result, &result{
-		Result: DiffLocalDeleted,
+		Result: "local-deleted",
 		Local:  []string{localFile.Path()},
 		Remote: []string{remoteFile.Path()},
 	})
@@ -69,7 +77,7 @@ func (t *testAction) LocalDeleted(localFile, remoteFile *FileInfo) {
 
 func (t *testAction) RemoteDeleted(localFile, remoteFile *FileInfo) {
 	t.Result = append(t.Result, &result{
-		Result: DiffRemoteDeleted,
+		Result: "remote-deleted",
 		Local:  []string{localFile.Path()},
 		Remote: []string{remoteFile.Path()},
 	})
@@ -77,7 +85,7 @@ func (t *testAction) RemoteDeleted(localFile, remoteFile *FileInfo) {
 
 func (t *testAction) LocalChanged(localFile, remoteFile *FileInfo) {
 	t.Result = append(t.Result, &result{
-		Result: DiffLocalChanged,
+		Result: "local-changed",
 		Local:  []string{localFile.Path()},
 		Remote: []string{remoteFile.Path()},
 	})
@@ -85,7 +93,7 @@ func (t *testAction) LocalChanged(localFile, remoteFile *FileInfo) {
 
 func (t *testAction) RemoteChanged(localFile, remoteFile *FileInfo) {
 	t.Result = append(t.Result, &result{
-		Result: DiffLocalChanged,
+		Result: "remote-changed",
 		Local:  []string{localFile.Path()},
 		Remote: []string{remoteFile.Path()},
 	})
@@ -103,7 +111,7 @@ func (t *testAction) Conflict(localFiles, remoteFiles []*FileInfo) {
 	}
 
 	t.Result = append(t.Result, &result{
-		Result: DiffConflict,
+		Result: "conflict",
 		Local:  local,
 		Remote: remote,
 	})
@@ -780,7 +788,7 @@ func TestLoadBoffin(t *testing.T) {
 // 		// 	},
 // 		// },
 // 		{
-// 			Result: DiffEqual,
+// 			Result: DiffUnchanged,
 // 			Local: &FileInfo{
 // 				History: []*FileEvent{
 // 					&FileEvent{
@@ -819,7 +827,7 @@ func TestLoadBoffin(t *testing.T) {
 // 			},
 // 		},
 // 		// {
-// 		// 	Result: DiffLocalAdded,
+// 		// 	Result: DiffLocalOnly,
 // 		// 	Local: &FileInfo{
 // 		// 		History: []*FileEvent{
 // 		// 			&FileEvent{
@@ -895,7 +903,7 @@ func TestLoadBoffin(t *testing.T) {
 // 		// 	},
 // 		// },
 // 		// {
-// 		// 	Result: DiffRemoteAdded,
+// 		// 	Result: DiffRemoteOnly,
 // 		// 	Remote: &FileInfo{
 // 		// 		History: []*FileEvent{
 // 		// 			&FileEvent{
@@ -1041,102 +1049,17 @@ func TestDiff3(t *testing.T) {
 					},
 				},
 			},
-			// 	{
-			// 		History: []*FileEvent{
-			// 			&FileEvent{
-			// 				Path:     "local-added",
-			// 				Size:     10,
-			// 				Type:     "changed",
-			// 				Time:     parseTime("2020-01-01T12:34:56Z"),
-			// 				Checksum: "local-added-hash-1",
-			// 			},
-			// 		},
-			// 	},
-			// {
-			// 	History: []*FileEvent{
-			// 		&FileEvent{
-			// 			Path:     "local-changed",
-			// 			Size:     10,
-			// 			Type:     "changed",
-			// 			Time:     parseTime("2020-01-01T12:34:56Z"),
-			// 			Checksum: "local-changed-hash-1",
-			// 		},
-			// 		&FileEvent{
-			// 			Path:     "local-changed",
-			// 			Size:     20,
-			// 			Type:     "changed",
-			// 			Time:     parseTime("2020-01-02T12:34:56Z"),
-			// 			Checksum: "local-changed-hash-2",
-			// 		},
-			// 	},
-			// },
-			// 	{
-			// 		History: []*FileEvent{
-			// 			&FileEvent{
-			// 				Path:     "local-deleted",
-			// 				Size:     10,
-			// 				Type:     "changed",
-			// 				Time:     parseTime("2020-01-01T12:34:56Z"),
-			// 				Checksum: "local-deleted-hash-1",
-			// 			},
-			// 			&FileEvent{
-			// 				Path: "local-deleted",
-			// 				Type: "deleted",
-			// 				Time: parseTime("2020-01-02T12:34:56Z"),
-			// 			},
-			// 		},
-			// 	},
-			// 	{
-			// 		History: []*FileEvent{
-			// 			&FileEvent{
-			// 				Path:     "remote-changed",
-			// 				Size:     10,
-			// 				Type:     "changed",
-			// 				Time:     parseTime("2020-01-01T12:34:56Z"),
-			// 				Checksum: "remote-changed-hash-1",
-			// 			},
-			// 		},
-			// 	},
-			// 	{
-			// 		History: []*FileEvent{
-			// 			&FileEvent{
-			// 				Path:     "remote-deleted",
-			// 				Size:     10,
-			// 				Type:     "changed",
-			// 				Time:     parseTime("2020-01-01T12:34:56Z"),
-			// 				Checksum: "remote-deleted-hash-1",
-			// 			},
-			// 		},
-			// 	},
-			// 	{
-			// 		History: []*FileEvent{
-			// 			&FileEvent{
-			// 				Path:     "conflict",
-			// 				Size:     10,
-			// 				Type:     "changed",
-			// 				Time:     parseTime("2020-01-01T12:34:56Z"),
-			// 				Checksum: "conflict-hash-1",
-			// 			},
-			// 			&FileEvent{
-			// 				Path:     "conflict",
-			// 				Size:     10,
-			// 				Type:     "changed",
-			// 				Time:     parseTime("2020-01-02T12:34:56Z"),
-			// 				Checksum: "conflict-hash-L",
-			// 			},
-			// 		},
-			// 	},
-			// 	// {
-			// 	// 	History: []*FileEvent{
-			// 	// 		&FileEvent{
-			// 	// 			Path:     "duplicate-deleted-edge-exists",
-			// 	// 			Size:     10,
-			// 	// 			Type:     "changed",
-			// 	// 			Time:     parseTime("2020-01-01T12:34:56Z"),
-			// 	// 			Checksum: "duplicate-deleted-edge",
-			// 	// 		},
-			// 	// 	},
-			// 	// },
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "renamed-local",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "renamed-hash-1",
+					},
+				},
+			},
 		},
 	}
 	var remote Boffin = &db{
@@ -1181,125 +1104,25 @@ func TestDiff3(t *testing.T) {
 					},
 				},
 			},
-			// {
-			// 	History: []*FileEvent{
-			// 		&FileEvent{
-			// 			Path:     "local-changed",
-			// 			Size:     10,
-			// 			Type:     "changed",
-			// 			Time:     parseTime("2020-01-01T12:34:56Z"),
-			// 			Checksum: "local-changed-hash-1",
-			// 		},
-			// 	},
-			// },
-			// 	{
-			// 		History: []*FileEvent{
-			// 			&FileEvent{
-			// 				Path:     "local-deleted",
-			// 				Size:     10,
-			// 				Type:     "changed",
-			// 				Time:     parseTime("2020-01-01T12:34:56Z"),
-			// 				Checksum: "local-deleted-hash-1",
-			// 			},
-			// 		},
-			// 	},
-			// 	{
-			// 		History: []*FileEvent{
-			// 			&FileEvent{
-			// 				Path:     "remote-added",
-			// 				Size:     10,
-			// 				Type:     "changed",
-			// 				Time:     parseTime("2020-01-01T12:34:56Z"),
-			// 				Checksum: "remote-added-hash-1",
-			// 			},
-			// 		},
-			// 	},
-			// 	{
-			// 		History: []*FileEvent{
-			// 			&FileEvent{
-			// 				Path:     "remote-changed",
-			// 				Size:     10,
-			// 				Type:     "changed",
-			// 				Time:     parseTime("2020-01-01T12:34:56Z"),
-			// 				Checksum: "remote-changed-hash-1",
-			// 			},
-			// 			&FileEvent{
-			// 				Path:     "remote-changed",
-			// 				Size:     11,
-			// 				Type:     "changed",
-			// 				Time:     parseTime("2020-01-02T12:34:56Z"),
-			// 				Checksum: "remote-changed-hash-2",
-			// 			},
-			// 		},
-			// 	},
-			// 	{
-			// 		History: []*FileEvent{
-			// 			&FileEvent{
-			// 				Path:     "remote-deleted",
-			// 				Size:     10,
-			// 				Type:     "changed",
-			// 				Time:     parseTime("2020-01-01T12:34:56Z"),
-			// 				Checksum: "remote-deleted-hash-1",
-			// 			},
-			// 			&FileEvent{
-			// 				Path: "remote-deleted",
-			// 				Type: "deleted",
-			// 				Time: parseTime("2020-01-02T12:34:56Z"),
-			// 			},
-			// 		},
-			// 	},
-			// 	{
-			// 		History: []*FileEvent{
-			// 			&FileEvent{
-			// 				Path:     "conflict",
-			// 				Size:     10,
-			// 				Type:     "changed",
-			// 				Time:     parseTime("2020-01-01T12:34:56Z"),
-			// 				Checksum: "conflict-hash-1",
-			// 			},
-			// 			&FileEvent{
-			// 				Path:     "conflict",
-			// 				Size:     10,
-			// 				Type:     "changed",
-			// 				Time:     parseTime("2020-01-03T12:34:56Z"),
-			// 				Checksum: "conflict-hash-R",
-			// 			},
-			// 		},
-			// 	},
-			// 	// {
-			// 	// 	History: []*FileEvent{
-			// 	// 		&FileEvent{
-			// 	// 			Path:     "duplicate-deleted-edge-deleted",
-			// 	// 			Size:     10,
-			// 	// 			Type:     "changed",
-			// 	// 			Time:     parseTime("2020-01-01T12:34:56Z"),
-			// 	// 			Checksum: "duplicate-deleted-edge",
-			// 	// 		},
-			// 	// 		&FileEvent{
-			// 	// 			Path: "duplicate-deleted-edge-deleted",
-			// 	// 			Type: "delated",
-			// 	// 			Time: parseTime("2020-01-03T12:34:56Z"),
-			// 	// 		},
-			// 	// 	},
-			// 	// },
-			// 	// {
-			// 	// 	History: []*FileEvent{
-			// 	// 		&FileEvent{
-			// 	// 			Path:     "duplicate-deleted-edge-exists",
-			// 	// 			Size:     10,
-			// 	// 			Type:     "changed",
-			// 	// 			Time:     parseTime("2020-01-01T12:34:56Z"),
-			// 	// 			Checksum: "duplicate-deleted-edge",
-			// 	// 		},
-			// 	// 	},
-			// 	// },
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "renamed-remote",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "renamed-hash-1",
+					},
+				},
+			},
 		},
 	}
 
 	expected := []*result{
-		{Result: DiffEqual, Local: []string{"equal"}, Remote: []string{"equal"}},
-		{Result: DiffEqual, Local: []string{"equal2"}, Remote: []string{"equal2"}},
-		{Result: DiffEqual, Local: []string{"equal3"}, Remote: []string{"equal3"}},
+		{Result: "unchanged", Local: []string{"equal"}, Remote: []string{"equal"}},
+		{Result: "unchanged", Local: []string{"equal2"}, Remote: []string{"equal2"}},
+		{Result: "unchanged", Local: []string{"equal3"}, Remote: []string{"equal3"}},
+		{Result: "moved", Local: []string{"renamed-local"}, Remote: []string{"renamed-remote"}},
 	}
 
 	var actual testAction
