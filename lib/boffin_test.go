@@ -3,6 +3,7 @@ package lib
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -114,6 +115,44 @@ func (t *testAction) Conflict(localFiles, remoteFiles []*FileInfo) {
 		Result: "conflict",
 		Local:  local,
 		Remote: remote,
+	})
+}
+
+func (t *testAction) Sort() {
+	// sort results according to local path names
+	sort.Slice(t.Result, func(i, j int) bool {
+		left := t.Result[i]
+		right := t.Result[j]
+
+		if left.Result != right.Result {
+			return left.Result < right.Result
+		}
+
+		for index := 0; index < len(left.Local); index++ {
+			if index >= len(right.Local) {
+				return false
+			}
+			if left.Local[index] != right.Local[index] {
+				return left.Local[index] < right.Local[index]
+			}
+		}
+		if len(left.Local) < len(right.Local) {
+			return true
+		}
+
+		for index := 0; index < len(left.Remote); index++ {
+			if index >= len(right.Remote) {
+				return false
+			}
+			if left.Remote[index] != right.Remote[index] {
+				return left.Remote[index] < right.Remote[index]
+			}
+		}
+		if len(left.Remote) < len(right.Remote) {
+			return true
+		}
+
+		return false
 	})
 }
 
@@ -1105,6 +1144,85 @@ func TestDiff3(t *testing.T) {
 					},
 				},
 			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "local-changed-l-1-1",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "local-changed-hash-1-1",
+					},
+					&FileEvent{
+						Path:     "local-changed-l-1-2",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "local-changed-hash-1-2",
+					},
+					&FileEvent{
+						Path:     "local-changed-l-1-3",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-03T12:34:56Z"),
+						Checksum: "local-changed-hash-1-3",
+					},
+				},
+			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "local-changed-l-2-1",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "local-changed-hash-2-1",
+					},
+					&FileEvent{
+						Path:     "local-changed-l-2-2",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "local-changed-hash-2-2",
+					},
+					&FileEvent{
+						Path:     "local-changed-l-2-3",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-03T12:34:56Z"),
+						Checksum: "local-changed-hash-2-3",
+					},
+				},
+			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "remote-changed-l-1-1",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "remote-changed-hash-1-1",
+					},
+					&FileEvent{
+						Path:     "remote-changed-l-1-2",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "remote-changed-hash-1-2",
+					},
+				},
+			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "remote-changed-l-2-1",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "remote-changed-hash-2-1",
+					},
+				},
+			},
 		},
 	}
 	var remote Boffin = &db{
@@ -1205,20 +1323,103 @@ func TestDiff3(t *testing.T) {
 					},
 				},
 			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "local-changed-r-1-1",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "local-changed-hash-1-1",
+					},
+					&FileEvent{
+						Path:     "local-changed-r-1-2",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "local-changed-hash-1-2",
+					},
+				},
+			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "local-changed-r-2-1",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "local-changed-hash-2-1",
+					},
+				},
+			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "remote-changed-r-1-1",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "remote-changed-hash-1-1",
+					},
+					&FileEvent{
+						Path:     "remote-changed-r-1-2",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "remote-changed-hash-1-2",
+					},
+					&FileEvent{
+						Path:     "remote-changed-r-1-3",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-03T12:34:56Z"),
+						Checksum: "remote-changed-hash-1-3",
+					},
+				},
+			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "remote-changed-r-2-1",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "remote-changed-hash-2-1",
+					},
+					&FileEvent{
+						Path:     "remote-changed-r-2-2",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-02T12:34:56Z"),
+						Checksum: "remote-changed-hash-2-2",
+					},
+					&FileEvent{
+						Path:     "remote-changed-r-2-3",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-03T12:34:56Z"),
+						Checksum: "remote-changed-hash-2-3",
+					},
+				},
+			},
 		},
 	}
 
 	expected := []*result{
+		{Result: "local-changed", Local: []string{"local-changed-l-1-3"}, Remote: []string{"local-changed-r-1-2"}},
+		{Result: "local-changed", Local: []string{"local-changed-l-2-3"}, Remote: []string{"local-changed-r-2-1"}},
+		{Result: "local-only", Local: []string{"added-local"}},
+		{Result: "local-only", Local: []string{"added-local2"}},
+		{Result: "local-only", Local: []string{"hanging-delete-local"}},
+		{Result: "moved", Local: []string{"renamed-local"}, Remote: []string{"renamed-remote"}},
+		{Result: "remote-changed", Local: []string{"remote-changed-l-1-2"}, Remote: []string{"remote-changed-r-1-3"}},
+		{Result: "remote-changed", Local: []string{"remote-changed-l-2-1"}, Remote: []string{"remote-changed-r-2-3"}},
+		{Result: "remote-only", Remote: []string{"added-remote"}},
+		{Result: "remote-only", Remote: []string{"added-remote2"}},
+		{Result: "remote-only", Remote: []string{"hanging-delete-remote"}},
 		{Result: "unchanged", Local: []string{"equal"}, Remote: []string{"equal"}},
 		{Result: "unchanged", Local: []string{"equal2"}, Remote: []string{"equal2"}},
 		{Result: "unchanged", Local: []string{"equal3"}, Remote: []string{"equal3"}},
-		{Result: "moved", Local: []string{"renamed-local"}, Remote: []string{"renamed-remote"}},
-		{Result: "local-only", Local: []string{"hanging-delete-local"}},
-		{Result: "local-only", Local: []string{"added-local"}},
-		{Result: "local-only", Local: []string{"added-local2"}},
-		{Result: "remote-only", Remote: []string{"hanging-delete-remote"}},
-		{Result: "remote-only", Remote: []string{"added-remote"}},
-		{Result: "remote-only", Remote: []string{"added-remote2"}},
 	}
 
 	var actual testAction
@@ -1226,6 +1427,7 @@ func TestDiff3(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 	}
+	actual.Sort()
 
 	margin, _ := time.ParseDuration("2s")
 	opt1 := cmpopts.EquateApproxTime(margin)

@@ -226,6 +226,37 @@ func filesToHashMap(files []*FileInfo) map[string][]*FileInfo {
 	return fileMap
 }
 
+// filesToHistoricHashMap ...
+func filesToHistoricHashMap(files []*FileInfo) map[string][]int {
+	fileMap := make(map[string][]int)
+
+	for fileIndex, file := range files {
+		for _, event := range file.History[:len(file.History)-1] {
+			if event.Type != deleted {
+				fi, found := fileMap[event.Checksum]
+				// does the checksum exist in the list
+				if found {
+					found = false
+					// do not same file multiple times
+					for _, otherFile := range fi { // optimisation; no need to include last hash as current hashes are already processes
+						if fileIndex == otherFile {
+							found = true
+							break
+						}
+					}
+					if !found {
+						fileMap[event.Checksum] = append(fi, fileIndex)
+					}
+				} else {
+					fileMap[event.Checksum] = []int{fileIndex}
+				}
+			}
+		}
+	}
+
+	return fileMap
+}
+
 func CheckIfMetaChanged(info os.FileInfo, localFile *FileInfo) bool {
 	if localFile == nil {
 		return true
@@ -403,21 +434,29 @@ func (d *db) Diff3(remote Boffin, action DiffAction) error {
 	var err error
 
 	localFiles, remoteFiles, err =
-		matchRemoteToLocalUsingPathAndCurrentHashes(localFiles, remoteFiles, action) // equal
+		matchRemoteToLocalUsingPathAndCurrentHashes(localFiles, remoteFiles, action)
+		// equal
 	localFiles, remoteFiles, err =
-		matchRemoteToLocalUsingCurrentHashes(localFiles, remoteFiles, action) // moved/renamed
+		matchRemoteToLocalUsingCurrentHashes(localFiles, remoteFiles, action)
+		// moved/renamed
 	localFiles, remoteFiles, err =
-		matchCurrentRemoteToHistoricalLocalUsingHashes(localFiles, remoteFiles, action) // moved/renamed and changed; conflict if multiple matches
+		matchCurrentRemoteToHistoricalLocalUsingHashes(localFiles, remoteFiles, action)
+		// moved/renamed and changed; conflict if multiple matches
 	localFiles, remoteFiles, err =
-		matchCurrentLocalToHistoricalRemoteUsingHashed(localFiles, remoteFiles, action) // moved/renamed and changed; conflict if multiple matches
+		matchCurrentLocalToHistoricalRemoteUsingHashed(localFiles, remoteFiles, action)
+		// moved/renamed and changed; conflict if multiple matches
 	localFiles, remoteFiles, err =
-		matchLocalToRemoteUsingHistoricalHashes(localFiles, remoteFiles, action) // conflict
+		matchLocalToRemoteUsingHistoricalHashes(localFiles, remoteFiles, action)
+		// conflict
 	localFiles, remoteFiles, err =
-		matchRemoteToLocalUsingHistoricalHashes(localFiles, remoteFiles, action) // conflict
+		matchRemoteToLocalUsingHistoricalHashes(localFiles, remoteFiles, action)
+		// conflict
 	localFiles, remoteFiles, err =
-		matchLocalToRemoteUsingPath(localFiles, remoteFiles, action) // conflict
+		matchLocalToRemoteUsingPath(localFiles, remoteFiles, action)
+		// conflict
 	localFiles, remoteFiles, err =
-		matchRemoteToLocalUsingPath(localFiles, remoteFiles, action) // conflict
+		matchRemoteToLocalUsingPath(localFiles, remoteFiles, action)
+		// conflict
 
 	for _, file := range localFiles {
 		action.LocalOnly(file)
@@ -534,11 +573,87 @@ func matchRemoteToLocalUsingCurrentHashes(local, remote []*FileInfo, action Diff
 }
 
 func matchCurrentRemoteToHistoricalLocalUsingHashes(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
-	return local, remote, nil
+	// copy all deleted files as we will not be handling them
+	newLocal = make([]*FileInfo, 0, len(local))
+
+	newRemote = make([]*FileInfo, 0, len(remote))
+	for _, file := range remote {
+		if file.IsDeleted() {
+			newRemote = append(newRemote, file)
+		}
+	}
+
+	localByHash := filesToHistoricHashMap(local)
+	remoteByHash := filesToHashMap(remote)
+
+	for remoteHash, remoteFiles := range remoteByHash {
+		localFileIndices, ok := localByHash[remoteHash]
+		if ok {
+			if len(localFileIndices) == 1 && len(remoteFiles) == 1 {
+				action.LocalChanged(local[localFileIndices[0]], remoteFiles[0])
+				local[localFileIndices[0]] = nil
+			} else {
+				localFiles := make([]*FileInfo, 0, len(localFileIndices))
+				for _, localFileIndex := range localFileIndices {
+					localFiles = append(localFiles, local[localFileIndex])
+					local[localFileIndex] = nil
+				}
+				action.Conflict(localFiles, remoteFiles)
+			}
+		} else {
+			newRemote = append(newRemote, remoteFiles...)
+		}
+	}
+
+	for _, localFile := range local {
+		if localFile != nil {
+			newLocal = append(newLocal, localFile)
+		}
+	}
+
+	return newLocal, newRemote, nil
 }
 
 func matchCurrentLocalToHistoricalRemoteUsingHashed(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
-	return local, remote, nil
+	// copy all deleted files as we will not be handling them
+	newLocal = make([]*FileInfo, 0, len(local))
+	for _, file := range local {
+		if file.IsDeleted() {
+			newLocal = append(newLocal, file)
+		}
+	}
+
+	newRemote = make([]*FileInfo, 0, len(remote))
+
+	localByHash := filesToHashMap(local)
+	remoteByHash := filesToHistoricHashMap(remote)
+
+	for localHash, localFiles := range localByHash {
+		remoteFileIndices, ok := remoteByHash[localHash]
+		if ok {
+			if len(remoteFileIndices) == 1 && len(localFiles) == 1 {
+				action.RemoteChanged(localFiles[0], remote[remoteFileIndices[0]])
+				remote[remoteFileIndices[0]] = nil
+			} else {
+				remoteFiles := make([]*FileInfo, 0, len(remoteFileIndices))
+				for _, remoteFileIndex := range remoteFileIndices {
+					remoteFiles = append(remoteFiles, remote[remoteFileIndex])
+					remote[remoteFileIndex] = nil
+				}
+				action.Conflict(remoteFiles, localFiles)
+			}
+		} else {
+			newLocal = append(newLocal, localFiles...)
+		}
+	}
+
+	for _, remoteFile := range remote {
+		if remoteFile != nil {
+			newRemote = append(newRemote, remoteFile)
+		}
+	}
+
+	return newLocal, newRemote, nil
 }
 
 func matchLocalToRemoteUsingHistoricalHashes(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
