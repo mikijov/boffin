@@ -231,7 +231,8 @@ func filesToHistoricHashMap(files []*FileInfo) map[string][]int {
 	fileMap := make(map[string][]int)
 
 	for fileIndex, file := range files {
-		for _, event := range file.History[:len(file.History)-1] {
+		// for _, event := range file.History[:len(file.History)-1] {
+		for _, event := range file.History {
 			if event.Type != deleted {
 				fi, found := fileMap[event.Checksum]
 				// does the checksum exist in the list
@@ -572,6 +573,10 @@ func matchRemoteToLocalUsingCurrentHashes(local, remote []*FileInfo, action Diff
 	return newLocal, newRemote, nil
 }
 
+// Match all remote files to local files, where current remote hash matches
+// historical local hash, and mark remote file as a changed version of the local
+// file. In case that the same hash appears multiple times on either remote or
+// local side, mark them as conflicts.
 func matchCurrentRemoteToHistoricalLocalUsingHashes(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
 	// copy all deleted files as we will not be handling them
 	newLocal = make([]*FileInfo, 0, len(local))
@@ -614,6 +619,10 @@ func matchCurrentRemoteToHistoricalLocalUsingHashes(local, remote []*FileInfo, a
 	return newLocal, newRemote, nil
 }
 
+// Match all local files to remote files, where current local hash matches
+// historical remote hash, and mark local file as a changed version of the
+// remote file. In case that the same hash appears multiple times on either
+// remote or local side, mark them as conflicts.
 func matchCurrentLocalToHistoricalRemoteUsingHashed(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
 	// copy all deleted files as we will not be handling them
 	newLocal = make([]*FileInfo, 0, len(local))
@@ -640,7 +649,7 @@ func matchCurrentLocalToHistoricalRemoteUsingHashed(local, remote []*FileInfo, a
 					remoteFiles = append(remoteFiles, remote[remoteFileIndex])
 					remote[remoteFileIndex] = nil
 				}
-				action.Conflict(remoteFiles, localFiles)
+				action.Conflict(localFiles, remoteFiles)
 			}
 		} else {
 			newLocal = append(newLocal, localFiles...)
@@ -657,7 +666,50 @@ func matchCurrentLocalToHistoricalRemoteUsingHashed(local, remote []*FileInfo, a
 }
 
 func matchLocalToRemoteUsingHistoricalHashes(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
-	return local, remote, nil
+	// copy all deleted files as we will not be handling them
+	newLocal = make([]*FileInfo, 0, len(local))
+	newRemote = make([]*FileInfo, 0, len(remote))
+
+	localByHash := filesToHistoricHashMap(local)
+	remoteByHash := filesToHistoricHashMap(remote)
+
+	for localHash, localFileIndices := range localByHash {
+		remoteFileIndices, ok := remoteByHash[localHash]
+		if ok {
+			localFiles := make([]*FileInfo, 0, len(localFileIndices))
+			for _, localFileIndex := range localFileIndices {
+				if local[localFileIndex] != nil {
+					localFiles = append(localFiles, local[localFileIndex])
+					local[localFileIndex] = nil
+				}
+			}
+
+			remoteFiles := make([]*FileInfo, 0, len(remoteFileIndices))
+			for _, remoteFileIndex := range remoteFileIndices {
+				if remote[remoteFileIndex] != nil {
+					remoteFiles = append(remoteFiles, remote[remoteFileIndex])
+					remote[remoteFileIndex] = nil
+				}
+			}
+
+			action.Conflict(localFiles, remoteFiles)
+		} else {
+			for _, index := range localFileIndices {
+				if local[index] != nil {
+					newLocal = append(newLocal, local[index])
+					local[index] = nil
+				}
+			}
+		}
+	}
+
+	for _, remoteFile := range remote {
+		if remoteFile != nil {
+			newRemote = append(newRemote, remoteFile)
+		}
+	}
+
+	return newLocal, newRemote, nil
 }
 
 func matchRemoteToLocalUsingHistoricalHashes(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
