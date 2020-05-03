@@ -105,11 +105,13 @@ func (t *testAction) Conflict(localFiles, remoteFiles []*FileInfo) {
 	for _, file := range localFiles {
 		local = append(local, file.Path())
 	}
+	sort.Strings(local)
 
 	remote := []string{}
 	for _, file := range remoteFiles {
 		remote = append(remote, file.Path())
 	}
+	sort.Strings(remote)
 
 	t.Result = append(t.Result, &result{
 		Result: "conflict",

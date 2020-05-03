@@ -693,16 +693,14 @@ func matchLocalToRemoteUsingHistoricalHashes(local, remote []*FileInfo, action D
 			}
 
 			action.Conflict(localFiles, remoteFiles)
-		} else {
-			for _, index := range localFileIndices {
-				if local[index] != nil {
-					newLocal = append(newLocal, local[index])
-					local[index] = nil
-				}
-			}
 		}
 	}
 
+	for _, localFile := range local {
+		if localFile != nil {
+			newLocal = append(newLocal, localFile)
+		}
+	}
 	for _, remoteFile := range remote {
 		if remoteFile != nil {
 			newRemote = append(newRemote, remoteFile)
