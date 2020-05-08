@@ -447,16 +447,10 @@ func (d *db) Diff3(remote Boffin, action DiffAction) error {
 		matchCurrentLocalToHistoricalRemoteUsingHashed(localFiles, remoteFiles, action)
 		// moved/renamed and changed; conflict if multiple matches
 	localFiles, remoteFiles, err =
-		matchLocalToRemoteUsingHistoricalHashes(localFiles, remoteFiles, action)
+		matchUsingHistoricalHashes(localFiles, remoteFiles, action)
 		// conflict
 	localFiles, remoteFiles, err =
-		matchRemoteToLocalUsingHistoricalHashes(localFiles, remoteFiles, action)
-		// conflict
-	localFiles, remoteFiles, err =
-		matchLocalToRemoteUsingPath(localFiles, remoteFiles, action)
-		// conflict
-	localFiles, remoteFiles, err =
-		matchRemoteToLocalUsingPath(localFiles, remoteFiles, action)
+		matchUsingPath(localFiles, remoteFiles, action)
 		// conflict
 
 	for _, file := range localFiles {
@@ -665,8 +659,7 @@ func matchCurrentLocalToHistoricalRemoteUsingHashed(local, remote []*FileInfo, a
 	return newLocal, newRemote, nil
 }
 
-func matchLocalToRemoteUsingHistoricalHashes(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
-	// copy all deleted files as we will not be handling them
+func matchUsingHistoricalHashes(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
 	newLocal = make([]*FileInfo, 0, len(local))
 	newRemote = make([]*FileInfo, 0, len(remote))
 
@@ -710,16 +703,41 @@ func matchLocalToRemoteUsingHistoricalHashes(local, remote []*FileInfo, action D
 	return newLocal, newRemote, nil
 }
 
-func matchRemoteToLocalUsingHistoricalHashes(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
-	return local, remote, nil
-}
+func matchUsingPath(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
+	newLocal = make([]*FileInfo, 0, len(local))
+	for _, file := range local {
+		if file.IsDeleted() {
+			newLocal = append(newLocal, file)
+		}
+	}
 
-func matchLocalToRemoteUsingPath(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
-	return local, remote, nil
-}
+	newRemote = make([]*FileInfo, 0, len(remote))
+	for _, file := range remote {
+		if file.IsDeleted() {
+			newRemote = append(newRemote, file)
+		}
+	}
 
-func matchRemoteToLocalUsingPath(local, remote []*FileInfo, action DiffAction) (newLocal, newRemote []*FileInfo, err error) {
-	return local, remote, nil
+	localByPath := filesToPathMap(local)
+	remoteByPath := filesToPathMap(remote)
+
+	for localPath, localFile := range localByPath {
+		remoteFile, ok := remoteByPath[localPath]
+		if ok {
+			action.Conflict([]*FileInfo{localFile}, []*FileInfo{remoteFile})
+			delete(remoteByPath, localPath)
+		} else {
+			// pass through any unmatched files
+			newLocal = append(newLocal, localFile)
+		}
+	}
+
+	// pass through any unmatched files
+	for _, remoteFile := range remoteByPath {
+		newRemote = append(newRemote, remoteFile)
+	}
+
+	return newLocal, newRemote, nil
 }
 
 // func (d *db) Diff2(remote Boffin, action DiffAction) error {

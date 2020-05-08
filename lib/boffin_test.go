@@ -1319,6 +1319,17 @@ func TestDiff3(t *testing.T) {
 					},
 				},
 			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "same-name-conflict",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "same-name-conflict-hash-l",
+					},
+				},
+			},
 		},
 	}
 	var remote Boffin = &db{
@@ -1592,6 +1603,17 @@ func TestDiff3(t *testing.T) {
 					},
 				},
 			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "same-name-conflict",
+						Size:     10,
+						Type:     "changed",
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "same-name-conflict-hash-r",
+					},
+				},
+			},
 		},
 	}
 
@@ -1600,6 +1622,7 @@ func TestDiff3(t *testing.T) {
 		{Result: "conflict", Local: []string{"both-changed-conflict-2-1-l", "both-changed-conflict-2-2-l"}, Remote: []string{"both-changed-conflict-2-1-r", "both-changed-conflict-2-2-r"}},
 		{Result: "conflict", Local: []string{"local-changed-conflict-l-1-1"}, Remote: []string{"local-changed-conflict-r-1-1", "local-changed-conflict-r-1-2"}},
 		{Result: "conflict", Local: []string{"remote-changed-conflict-l-1-1", "remote-changed-conflict-l-1-2"}, Remote: []string{"remote-changed-conflict-r-1-1"}},
+		{Result: "conflict", Local: []string{"same-name-conflict"}, Remote: []string{"same-name-conflict"}},
 		{Result: "local-changed", Local: []string{"local-changed-l-1-3"}, Remote: []string{"local-changed-r-1-2"}},
 		{Result: "local-changed", Local: []string{"local-changed-l-2-3"}, Remote: []string{"local-changed-r-2-1"}},
 		{Result: "local-only", Local: []string{"added-local"}},
