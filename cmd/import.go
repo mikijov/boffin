@@ -60,52 +60,99 @@ var importCmd = &cobra.Command{
 			log.Fatalf("ERROR: %v\n", err)
 		}
 
-		exit := 0
-
-		for _, diff := range local.Diff(remote) {
-			if diff.Result == lib.DiffEqual {
-				// fmt.Printf("=:%s\n", diff.Local.Path())
-			} else if diff.Result == lib.DiffLocalAdded {
-				// fmt.Printf("L:%s\n", diff.Local.Path())
-			} else if diff.Result == lib.DiffRemoteAdded {
-				// fmt.Printf("R:%s\n", diff.Remote.Path())
-
-				src := filepath.Join(remote.GetBaseDir(), diff.Remote.Path())
-				dest := filepath.Join(local.GetImportDir(), diff.Remote.Path())
-
-				if err := addFile(src, dest); err != nil {
-					log.Printf("%v", err)
-					exit = 1
-					break
-				}
-			} else if diff.Result == lib.DiffLocalDeleted {
-				// fmt.Printf("+:%s\n", diff.Local.Path())
-			} else if diff.Result == lib.DiffRemoteDeleted {
-				// fmt.Printf("-:%s\n", diff.Local.Path())
-			} else if diff.Result == lib.DiffLocalChanged {
-				// fmt.Printf("<:%s\n", diff.Local.Path())
-			} else if diff.Result == lib.DiffRemoteChanged {
-				// fmt.Printf(">:%s\n", diff.Local.Path())
-
-				src := filepath.Join(remote.GetBaseDir(), diff.Remote.Path())
-				dest := filepath.Join(local.GetBaseDir(), diff.Local.Path())
-
-				if err := replaceFile(src, dest); err != nil {
-					log.Printf("%v", err)
-					exit = 1
-					break
-				}
-			} else if diff.Result == lib.DiffConflict {
-				fmt.Printf("!:%s\n", diff.Local.Path())
-				exit = 2
-			} else {
-				fmt.Printf("?:%s\n", diff.Local.Path())
-				exit = 2
-			}
+		action := &importAction{
+			local:  local,
+			remote: remote,
 		}
 
-		os.Exit(exit)
+		if err = lib.Diff(local, remote, action); err != nil {
+			log.Fatalf("ERROR: %v\n", err)
+		}
+
+		if action.exit != 0 {
+			os.Exit(action.exit)
+		}
 	},
+}
+
+type importAction struct {
+	exit   int
+	local  lib.Boffin
+	remote lib.Boffin
+}
+
+func (a *importAction) Unchanged(localFile, remoteFile *lib.FileInfo) {
+	// fmt.Printf("==:%s\n", localFile.Path())
+}
+
+func (a *importAction) Moved(localFile, remoteFile *lib.FileInfo) {
+	// fmt.Printf("=>:%s => %s\n", localFile.Path(), remoteFile.Path())
+}
+
+func (a *importAction) LocalOnly(localFile *lib.FileInfo) {
+	// fmt.Printf("L+:%s\n", localFile.Path())
+}
+
+func (a *importAction) RemoteOnly(remoteFile *lib.FileInfo) {
+	// fmt.Printf("R+:%s\n", remoteFile.Path())
+
+	src := filepath.Join(a.remote.GetBaseDir(), remoteFile.Path())
+	dest := filepath.Join(a.local.GetImportDir(), remoteFile.Path())
+
+	if err := addFile(src, dest); err != nil {
+		log.Printf("%v", err)
+		a.exit = 1
+	}
+}
+
+func (a *importAction) LocalDeleted(localFile, remoteFile *lib.FileInfo) {
+	// fmt.Printf("L-:%s\n", localFile.Path())
+}
+
+func (a *importAction) RemoteDeleted(localFile, remoteFile *lib.FileInfo) {
+	// fmt.Printf("R-:%s\n", remoteFile.Path())
+}
+
+func (a *importAction) LocalChanged(localFile, remoteFile *lib.FileInfo) {
+	// fmt.Printf(">>:%s\n", localFile.Path())
+}
+
+func (a *importAction) RemoteChanged(localFile, remoteFile *lib.FileInfo) {
+	// fmt.Printf("<<:%s\n", remoteFile.Path())
+
+	src := filepath.Join(a.remote.GetBaseDir(), remoteFile.Path())
+	dest := filepath.Join(a.local.GetBaseDir(), localFile.Path())
+
+	if err := replaceFile(src, dest); err != nil {
+		log.Printf("%v", err)
+		a.exit = 1
+	}
+}
+
+func (a *importAction) ConflictPath(localFile, remoteFile *lib.FileInfo) {
+	// fmt.Printf("!!:%s ! %s\n", localFile.Path(), remoteFile.Path())
+}
+
+func (a *importAction) ConflictHash(localFiles, remoteFiles []*lib.FileInfo) {
+	if len(localFiles) == 1 && len(remoteFiles) == 1 {
+		localFile := localFiles[0]
+		remoteFile := remoteFiles[0]
+		fmt.Printf("=>:%s => %s\n", localFile.Path(), remoteFile.Path())
+		localFile.History = append(localFile.History, &lib.FileEvent{
+			Path:     remoteFile.Path(),
+			Time:     remoteFile.Time(),
+			Size:     remoteFile.Size(),
+			Checksum: remoteFile.Checksum(),
+		})
+		return
+	}
+
+	for _, file := range localFiles {
+		fmt.Printf("!!:%s\n", file.Path())
+	}
+	for _, file := range remoteFiles {
+		fmt.Printf("!!:%s\n", file.Path())
+	}
 }
 
 func addFile(src, dest string) error {

@@ -7,7 +7,6 @@
           {
             "path": "equal.ext",
             "size": 10,
-            "event": "changed",
             "time": "2020-02-06T13:56:51.571756332Z",
             "checksum": "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrI="
           }
@@ -16,75 +15,8 @@
       {
         "history": [
           {
-            "path": "multi-hash/a-equal.ext",
-            "size": 30,
-            "event": "changed",
-            "time": "2020-02-25T14:03:45.270218079Z",
-            "checksum": "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ="
-          }
-        ]
-      },
-      {
-        "history": [
-          {
-            "path": "multi-hash/changed.ext",
-            "size": 87,
-            "event": "changed",
-            "time": "2020-02-24T14:01:07.828877429Z",
-            "checksum": "OfhhlgGfv8NbaPqLE6EGi2c9EJR8edzvXFnxl3QUvYo="
-          }
-        ]
-      },
-      {
-        "history": [
-          {
-            "path": "multi-hash/m-equal.ext",
-            "size": 30,
-            "event": "changed",
-            "time": "2020-02-25T14:03:57.917265752Z",
-            "checksum": "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ="
-          }
-        ]
-      },
-      {
-        "history": [
-          {
-            "path":     "multi-hash/moved.ext",
-            "size":     30,
-            "event":     "changed",
-            "time":     "2020-02-25T14:02:41.831652522Z",
-            "checksum": "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ="
-          }
-        ]
-      },
-      {
-        "history": [
-          {
-            "path": "multi-hash/renamed-before.ext",
-            "size": 30,
-            "event": "changed",
-            "time": "2020-02-25T14:03:45.270218079Z",
-            "checksum": "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ="
-          }
-        ]
-      },
-      {
-        "history": [
-          {
-            "path": "multi-hash/z-equal.ext",
-            "size": 30,
-            "event": "changed",
-            "time": "2020-02-25T14:04:02.354066271Z",
-            "checksum": "/C5STUNIN3N2elIyckcY1xYP8pw9Dh5VyVs+wt5pePQ="
-          }
-        ]
-      },
-      {
-        "history": [
-          {
             "path": "sub1/equal.ext",
             "size": 10,
-            "event": "changed",
             "time": "2020-02-06T13:57:02.90203166Z",
             "checksum": "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE="
           }
@@ -95,7 +27,6 @@
           {
             "path": "sub1/cross-rename-1.ext",
             "size": 19,
-            "event": "changed",
             "time": "2020-02-06T13:57:12.378926011Z",
             "checksum": "K1L3GOGZF5wiOtiJdkN6+xZiAKwG77ueF+KnMyCXAuI="
           }
@@ -106,7 +37,6 @@
           {
             "path": "sub1/cross-rename-2.ext",
             "size": 19,
-            "event": "changed",
             "time": "2020-02-06T13:57:12.378926011Z",
             "checksum": "Iag4g9z39+jJOdVGxqCNXziaAFwFZ8dnfdMrZQz1qKM="
           }
@@ -117,7 +47,6 @@
           {
             "path": "sub1/renamed-before.ext",
             "size": 10,
-            "event": "changed",
             "time": "2020-02-06T13:57:12.378926011Z",
             "checksum": "4PFd3bElTqFi8wvTlY2eRK6sJo65UivdK95nd7it5h4="
           }
@@ -128,7 +57,6 @@
           {
             "path": "sub1/moved.ext",
             "size": 10,
-            "event": "changed",
             "time": "2020-02-06T13:57:12.378926011Z",
             "checksum": "xP4lKAtsUEfiZZ+Z4wlwZ3yFIxq8w7PPdIBvNBzZhd4="
           }
@@ -139,7 +67,6 @@
           {
             "path": "sub1/move-rename-before.ext",
             "size": 16,
-            "event": "changed",
             "time": "2020-02-05T13:57:12.378926011Z",
             "checksum": "Ir6w9XOc7mlfgjFEhsjZAdhiqNosCRCf9iqzt3o7ndY="
           }
@@ -150,7 +77,6 @@
           {
             "path": "sub1/deleted.ext",
             "size": 10,
-            "event": "changed",
             "time": "2020-02-06T13:59:21.099018324Z",
             "checksum": "71JuQzM1k9ZV2tMnnhemjf+FUfbEEs8YS170IORPpA4="
           }

@@ -54,7 +54,7 @@ var updateCmd = &cobra.Command{
 			filterFunc = lib.ForceCheck
 		}
 
-		if err = boffin.Update(filterFunc); err != nil {
+		if err = lib.Update(boffin, filterFunc); err != nil {
 			log.Fatalf("ERROR: %v\n", err)
 		}
 		if !dryRun {

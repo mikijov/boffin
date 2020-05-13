@@ -26,6 +26,67 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type diffAction struct {
+}
+
+func (a *diffAction) Unchanged(localFile, remoteFile *lib.FileInfo) {
+	fmt.Printf("==:%s\n", localFile.Path())
+}
+
+func (a *diffAction) Moved(localFile, remoteFile *lib.FileInfo) {
+	fmt.Printf("=>:%s => %s\n", localFile.Path(), remoteFile.Path())
+}
+
+func (a *diffAction) LocalOnly(localFile *lib.FileInfo) {
+	fmt.Printf("L+:%s\n", localFile.Path())
+}
+
+func (a *diffAction) RemoteOnly(remoteFile *lib.FileInfo) {
+	fmt.Printf("R+:%s\n", remoteFile.Path())
+}
+
+func (a *diffAction) LocalDeleted(localFile, remoteFile *lib.FileInfo) {
+	fmt.Printf("L-:%s\n", localFile.Path())
+}
+
+func (a *diffAction) RemoteDeleted(localFile, remoteFile *lib.FileInfo) {
+	fmt.Printf("R-:%s\n", remoteFile.Path())
+}
+
+func (a *diffAction) LocalChanged(localFile, remoteFile *lib.FileInfo) {
+	fmt.Printf(">>:%s\n", localFile.Path())
+}
+
+func (a *diffAction) RemoteChanged(localFile, remoteFile *lib.FileInfo) {
+	fmt.Printf("<<:%s\n", remoteFile.Path())
+}
+
+func (a *diffAction) ConflictPath(localFile, remoteFile *lib.FileInfo) {
+	fmt.Printf("!!:%s ! %s\n", localFile.Path(), remoteFile.Path())
+}
+
+func (a *diffAction) ConflictHash(localFiles, remoteFiles []*lib.FileInfo) {
+	if len(localFiles) == 1 && len(remoteFiles) == 1 {
+		localFile := localFiles[0]
+		remoteFile := remoteFiles[0]
+		fmt.Printf("=>:%s => %s\n", localFile.Path(), remoteFile.Path())
+		localFile.History = append(localFile.History, &lib.FileEvent{
+			Path:     remoteFile.Path(),
+			Time:     remoteFile.Time(),
+			Size:     remoteFile.Size(),
+			Checksum: remoteFile.Checksum(),
+		})
+		return
+	}
+
+	for _, file := range localFiles {
+		fmt.Printf("!!:%s\n", file.Path())
+	}
+	for _, file := range remoteFiles {
+		fmt.Printf("!!:%s\n", file.Path())
+	}
+}
+
 // diffCmd represents the diff command
 var diffCmd = &cobra.Command{
 	Use:   "diff <remote-repo>",
@@ -58,26 +119,8 @@ var diffCmd = &cobra.Command{
 			log.Fatalf("ERROR: %v\n", err)
 		}
 
-		for _, diff := range local.Diff(remote) {
-			if diff.Result == lib.DiffEqual {
-				fmt.Printf("=:%s\n", diff.Local.Path())
-			} else if diff.Result == lib.DiffLocalAdded {
-				fmt.Printf("L:%s\n", diff.Local.Path())
-			} else if diff.Result == lib.DiffRemoteAdded {
-				fmt.Printf("R:%s\n", diff.Remote.Path())
-			} else if diff.Result == lib.DiffLocalDeleted {
-				fmt.Printf("+:%s\n", diff.Local.Path())
-			} else if diff.Result == lib.DiffRemoteDeleted {
-				fmt.Printf("-:%s\n", diff.Local.Path())
-			} else if diff.Result == lib.DiffLocalChanged {
-				fmt.Printf("<:%s\n", diff.Local.Path())
-			} else if diff.Result == lib.DiffRemoteChanged {
-				fmt.Printf(">:%s\n", diff.Local.Path())
-			} else if diff.Result == lib.DiffConflict {
-				fmt.Printf("~:%s\n", diff.Local.Path())
-			} else {
-				fmt.Printf("~:%s\n", diff.Local.Path())
-			}
+		if err = lib.Diff(local, remote, &diffAction{}); err != nil {
+			log.Fatalf("ERROR: %v\n", err)
 		}
 	},
 }
