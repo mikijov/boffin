@@ -93,6 +93,10 @@ func (a *importAction) LocalOnly(localFile *lib.FileInfo) {
 	// fmt.Printf("L+:%s\n", localFile.Path())
 }
 
+func (a *importAction) LocalOld(localFile *lib.FileInfo) {
+	// do nothing
+}
+
 func (a *importAction) RemoteOnly(remoteFile *lib.FileInfo) {
 	// fmt.Printf("R+:%s\n", remoteFile.Path())
 
@@ -103,6 +107,10 @@ func (a *importAction) RemoteOnly(remoteFile *lib.FileInfo) {
 		log.Printf("%v", err)
 		a.exit = 1
 	}
+}
+
+func (a *importAction) RemoteOld(remoteFile *lib.FileInfo) {
+	// do nothing
 }
 
 func (a *importAction) LocalDeleted(localFile, remoteFile *lib.FileInfo) {

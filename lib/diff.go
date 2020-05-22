@@ -9,7 +9,9 @@ type DiffAction interface {
 	Unchanged(localFile, remoteFile *FileInfo)
 	Moved(localFile, remoteFile *FileInfo)
 	LocalOnly(localFile *FileInfo)
+	LocalOld(localFile *FileInfo)
 	RemoteOnly(remoteFile *FileInfo)
+	RemoteOld(remoteFile *FileInfo)
 	LocalDeleted(localFile, remoteFile *FileInfo)
 	RemoteDeleted(localFile, remoteFile *FileInfo)
 	LocalChanged(localFile, remoteFile *FileInfo)
@@ -43,10 +45,18 @@ func Diff(local, remote Boffin, action DiffAction) error {
 		// conflict
 
 	for _, file := range localFiles {
-		action.LocalOnly(file)
+		if file.IsDeleted() {
+			action.LocalOld(file)
+		} else {
+			action.LocalOnly(file)
+		}
 	}
 	for _, file := range remoteFiles {
-		action.RemoteOnly(file)
+		if file.IsDeleted() {
+			action.RemoteOld(file)
+		} else {
+			action.RemoteOnly(file)
+		}
 	}
 
 	return err

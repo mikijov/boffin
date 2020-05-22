@@ -88,6 +88,7 @@ func Update(repo Boffin, filter FilterFunc) error {
 			return nil
 		}
 
+		// sanity check which has never fired
 		root := path[:len(dir)]
 		if dir != root {
 			// this should never happen
@@ -157,9 +158,17 @@ func (a *updateAction) LocalOnly(localFile *FileInfo) {
 	localFile.MarkDeleted()
 }
 
+func (a *updateAction) LocalOld(localFile *FileInfo) {
+	// do nothing
+}
+
 func (a *updateAction) RemoteOnly(remoteFile *FileInfo) {
 	fmt.Printf("+%s\n", remoteFile.Path())
 	a.repo.AddFile(remoteFile)
+}
+
+func (a *updateAction) RemoteOld(remoteFile *FileInfo) {
+	// do nothing
 }
 
 func (a *updateAction) LocalDeleted(localFile, remoteFile *FileInfo) {

@@ -41,8 +41,16 @@ func (a *diffAction) LocalOnly(localFile *lib.FileInfo) {
 	fmt.Printf("L+:%s\n", localFile.Path())
 }
 
+func (a *diffAction) LocalOld(localFile *lib.FileInfo) {
+	// fmt.Printf("L+:%s\n", localFile.Path())
+}
+
 func (a *diffAction) RemoteOnly(remoteFile *lib.FileInfo) {
 	fmt.Printf("R+:%s\n", remoteFile.Path())
+}
+
+func (a *diffAction) RemoteOld(remoteFile *lib.FileInfo) {
+	// fmt.Printf("R+:%s\n", remoteFile.Path())
 }
 
 func (a *diffAction) LocalDeleted(localFile, remoteFile *lib.FileInfo) {

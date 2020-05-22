@@ -59,9 +59,25 @@ func (t *testAction) LocalOnly(localFile *FileInfo) {
 	})
 }
 
+func (t *testAction) LocalOld(localFile *FileInfo) {
+	t.Result = append(t.Result, &result{
+		Result: "local-old",
+		Local:  []string{localFile.Path()},
+		Remote: nil,
+	})
+}
+
 func (t *testAction) RemoteOnly(remoteFile *FileInfo) {
 	t.Result = append(t.Result, &result{
 		Result: "remote-only",
+		Local:  nil,
+		Remote: []string{remoteFile.Path()},
+	})
+}
+
+func (t *testAction) RemoteOld(remoteFile *FileInfo) {
+	t.Result = append(t.Result, &result{
+		Result: "remote-old",
 		Local:  nil,
 		Remote: []string{remoteFile.Path()},
 	})
