@@ -26,6 +26,28 @@ func TestUpdate(t *testing.T) {
 		{
 			History: []*FileEvent{
 				&FileEvent{
+					Path:     "equal-with-history.ext",
+					Size:     23,
+					Time:     parseTime("2020-05-21T04:06:07.654626019Z"),
+					Checksum: "XEvlLE++MWj0ybhJqLLM44Ai5VzyrjxymWAHm0GMN/I=",
+				},
+				&FileEvent{
+					Path:     "equal-with-history-1.ext",
+					Size:     23,
+					Time:     parseTime("2020-05-21T04:06:07.654626019Z"),
+					Checksum: "XEvlLE++MWj0ybhJqLLM44Ai5VzyrjxymWAHm0GMN/I=",
+				},
+				&FileEvent{
+					Path:     "equal-with-history.ext",
+					Size:     23,
+					Time:     parseTime("2020-05-21T04:06:07.654626019Z"),
+					Checksum: "XEvlLE++MWj0ybhJqLLM44Ai5VzyrjxymWAHm0GMN/I=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
 					Path:     "equal.ext",
 					Size:     10,
 					Time:     parseTime("2020-02-06T13:56:51.571756332Z"),

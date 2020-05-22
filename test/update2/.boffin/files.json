@@ -5,6 +5,28 @@
       {
         "history": [
           {
+            "path": "equal-with-history.ext",
+            "size": 23,
+            "time": "2020-05-21T04:06:07.654626019Z",
+            "checksum": "XEvlLE++MWj0ybhJqLLM44Ai5VzyrjxymWAHm0GMN/I="
+          },
+          {
+            "path": "equal-with-history-1.ext",
+            "size": 23,
+            "time": "2020-05-21T04:06:07.654626019Z",
+            "checksum": "XEvlLE++MWj0ybhJqLLM44Ai5VzyrjxymWAHm0GMN/I="
+          },
+          {
+            "path": "equal-with-history.ext",
+            "size": 23,
+            "time": "2020-05-21T04:06:07.654626019Z",
+            "checksum": "XEvlLE++MWj0ybhJqLLM44Ai5VzyrjxymWAHm0GMN/I="
+          }
+        ]
+      },
+      {
+        "history": [
+          {
             "path": "equal.ext",
             "size": 10,
             "time": "2020-02-06T13:56:51.571756332Z",

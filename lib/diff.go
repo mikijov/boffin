@@ -66,39 +66,37 @@ func matchRemoteToLocalUsingPathAndCurrentHashes(local, remote []*FileInfo, acti
 	newRemote = make([]*FileInfo, 0, len(remote))
 
 	i, j := 0, 0
-	for {
-		cmp := strings.Compare(local[i].Path(), remote[j].Path())
-		// if paths are different just mark them for further processing
-		if cmp < 0 {
-			newLocal = append(newLocal, local[i])
-			i++
-			if i >= len(local) {
-				break
-			}
-		} else if cmp > 0 {
-			newRemote = append(newRemote, remote[j])
-			j++
-			if j >= len(local) {
-				break
-			}
-		} else {
-			// if paths match, are not deleted and checksums match, mark them equal
-			if !local[i].IsDeleted() && !remote[j].IsDeleted() &&
-				local[i].Checksum() == remote[j].Checksum() {
-				action.Unchanged(local[i], remote[j])
-			} else {
+	if len(local) > 0 && len(remote) > 0 {
+		for {
+			cmp := strings.Compare(local[i].Path(), remote[j].Path())
+			// if paths are different just mark them for further processing
+			if cmp < 0 {
 				newLocal = append(newLocal, local[i])
+				i++
+				if i >= len(local) {
+					break
+				}
+			} else if cmp > 0 {
 				newRemote = append(newRemote, remote[j])
-			}
+				j++
+				if j >= len(local) {
+					break
+				}
+			} else {
+				// if paths match, are not deleted and checksums match, mark them equal
+				if !local[i].IsDeleted() && !remote[j].IsDeleted() &&
+					local[i].Checksum() == remote[j].Checksum() {
+					action.Unchanged(local[i], remote[j])
+				} else {
+					newLocal = append(newLocal, local[i])
+					newRemote = append(newRemote, remote[j])
+				}
 
-			i++
-			if i >= len(local) {
-				break
-			}
-
-			j++
-			if j >= len(local) {
-				break
+				i++
+				j++
+				if i >= len(local) || j >= len(local) {
+					break
+				}
 			}
 		}
 	}

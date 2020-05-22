@@ -96,15 +96,17 @@ func Update(repo Boffin, filter FilterFunc) error {
 
 		relPath := path[len(dir)+1:]
 
-		//   - if the path matches exactly
-		//     - if forced check or if size/date changed
-		//       - put file in to-be-checked list
-		//     - else
-		//       - mark checked
-		//   - else
-		//     - put file in to-be-checked list
 		localFile, ok := localByPath[relPath]
-		if filter(info, localFile) {
+		var checkFile bool
+		if ok {
+			delete(localByPath, relPath)
+			checkFile = filter(info, localFile)
+		} else {
+			checkFile = true
+		}
+
+		if checkFile {
+			// fmt.Printf("CC%s\n", relPath)
 			hash, err := CalculateChecksum(path)
 			if err != nil {
 				return err
@@ -121,9 +123,9 @@ func Update(repo Boffin, filter FilterFunc) error {
 					},
 				},
 			})
-		} else if ok {
-			// fmt.Printf("=%s\n", localFile.Path())
-			delete(localByPath, relPath)
+		} else { // no need to check, assume identical
+			// fmt.Printf("==%s\n", localFile.Path())
+			checkedFiles.files = append(checkedFiles.files, localFile)
 		}
 
 		return nil
@@ -142,7 +144,7 @@ type updateAction struct {
 }
 
 func (a *updateAction) Unchanged(localFile, remoteFile *FileInfo) {
-	fmt.Printf("=%s\n", localFile.Path())
+	// fmt.Printf("=%s\n", localFile.Path())
 }
 
 func (a *updateAction) Moved(localFile, remoteFile *FileInfo) {
@@ -157,7 +159,6 @@ func (a *updateAction) LocalOnly(localFile *FileInfo) {
 
 func (a *updateAction) RemoteOnly(remoteFile *FileInfo) {
 	fmt.Printf("+%s\n", remoteFile.Path())
-
 	a.repo.AddFile(remoteFile)
 }
 
