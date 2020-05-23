@@ -68,6 +68,11 @@ var importCmd = &cobra.Command{
 		if err = lib.Diff(local, remote, action); err != nil {
 			log.Fatalf("ERROR: %v\n", err)
 		}
+		if !dryRun {
+			if err = boffin.Save(); err != nil {
+				log.Fatalf("ERROR: %v\n", err)
+			}
+		}
 
 		if action.exit != 0 {
 			os.Exit(action.exit)
@@ -106,6 +111,14 @@ func (a *importAction) RemoteOnly(remoteFile *lib.FileInfo) {
 	if err := addFile(src, dest); err != nil {
 		log.Printf("%v", err)
 		a.exit = 1
+	} else {
+		remoteFile.History = append(remoteFile.History, &lib.FileEvent{
+			Path:     filepath.Join(a.local.GetRelImportDir(), remoteFile.Path()),
+			Time:     remoteFile.Time(),
+			Size:     remoteFile.Size(),
+			Checksum: remoteFile.Checksum(),
+		})
+		a.local.AddFile(remoteFile)
 	}
 }
 
@@ -134,6 +147,13 @@ func (a *importAction) RemoteChanged(localFile, remoteFile *lib.FileInfo) {
 	if err := replaceFile(src, dest); err != nil {
 		log.Printf("%v", err)
 		a.exit = 1
+	} else {
+		localFile.History = append(localFile.History, &lib.FileEvent{
+			Path:     localFile.Path(),
+			Time:     remoteFile.Time(),
+			Size:     remoteFile.Size(),
+			Checksum: remoteFile.Checksum(),
+		})
 	}
 }
 

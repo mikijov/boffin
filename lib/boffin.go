@@ -120,6 +120,7 @@ type Boffin interface {
 	GetDbDir() string
 	GetBaseDir() string
 	GetImportDir() string
+	GetRelImportDir() string
 
 	Save() error
 }
@@ -148,6 +149,11 @@ func (db *db) GetBaseDir() string {
 // GetImportDir ...
 func (db *db) GetImportDir() string {
 	return db.absImportDir
+}
+
+// GetRelImportDir ...
+func (db *db) GetRelImportDir() string {
+	return db.importDir
 }
 
 // GetFiles ...
