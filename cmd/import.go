@@ -170,6 +170,7 @@ func addFile(src, dest string) error {
 		}
 		return fmt.Errorf("destination file exists for addFile operation: %s", dest)
 	} else if os.IsNotExist(err) {
+		fmt.Printf("Add: %s => %s\n", src, dest)
 		// this path is what is expected
 		return _copyFile(src, dest)
 	} else {
@@ -182,6 +183,7 @@ func replaceFile(src, dest string) error {
 		if fi.IsDir() {
 			return fmt.Errorf("destination is a directory: %s", dest)
 		}
+		fmt.Printf("Update: %s => %s\n", src, dest)
 		// this path is what is expected
 		return _copyFile(src, dest)
 	} else if os.IsNotExist(err) {
@@ -194,7 +196,6 @@ func replaceFile(src, dest string) error {
 // Copy the src file to dest. Any existing file will be overwritten and will not
 // copy file attributes.
 func _copyFile(src, dest string) error {
-	fmt.Printf("%s => %s\n", src, dest)
 	if dryRun {
 		return nil
 	}

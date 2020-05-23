@@ -104,7 +104,7 @@ func matchRemoteToLocalUsingPathAndCurrentHashes(local, remote []*FileInfo, acti
 
 				i++
 				j++
-				if i >= len(local) || j >= len(local) {
+				if i >= len(local) || j >= len(remote) {
 					break
 				}
 			}
