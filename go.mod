@@ -1,4 +1,4 @@
-module github.com/mikijov/boffin
+module git.voreni.com/miki/boffin
 
 go 1.13
 

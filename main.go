@@ -17,7 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
-	"github.com/mikijov/boffin/cmd"
+	"git.voreni.com/miki/boffin/cmd"
 )
 
 func main() {

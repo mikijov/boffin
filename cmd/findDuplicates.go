@@ -21,7 +21,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mikijov/boffin/lib"
+	"git.voreni.com/miki/boffin/lib"
 	"github.com/spf13/cobra"
 )
 

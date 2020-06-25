@@ -24,7 +24,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mikijov/boffin/lib"
+	"git.voreni.com/miki/boffin/lib"
 	"github.com/spf13/cobra"
 )
 
@@ -69,7 +69,7 @@ var importCmd = &cobra.Command{
 			log.Fatalf("ERROR: %v\n", err)
 		}
 		if !dryRun {
-			if err = boffin.Save(); err != nil {
+			if err = local.Save(); err != nil {
 				log.Fatalf("ERROR: %v\n", err)
 			}
 		}
