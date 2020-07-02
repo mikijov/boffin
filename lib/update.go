@@ -148,6 +148,11 @@ func (a *updateAction) Unchanged(localFile, remoteFile *FileInfo) {
 	// fmt.Printf("=%s\n", localFile.Path())
 }
 
+func (a *updateAction) MetaDataChanged(localFile, remoteFile *FileInfo) {
+	fmt.Printf("M%s\n", localFile.Path())
+	localFile.History = append(localFile.History, remoteFile.History...)
+}
+
 func (a *updateAction) Moved(localFile, remoteFile *FileInfo) {
 	fmt.Printf("@%s => %s\n", localFile.Path(), remoteFile.Path())
 	localFile.History = append(localFile.History, remoteFile.History...)
@@ -180,7 +185,8 @@ func (a *updateAction) RemoteDeleted(localFile, remoteFile *FileInfo) {
 }
 
 func (a *updateAction) LocalChanged(localFile, remoteFile *FileInfo) {
-	panic("local changed should never happen for updateAction")
+	// panic("local changed should never happen for updateAction")
+	fmt.Printf("WARNING: Local should not change during update: ~%s => %s\n", localFile.Path(), remoteFile.Path())
 }
 
 func (a *updateAction) RemoteChanged(localFile, remoteFile *FileInfo) {
@@ -204,17 +210,11 @@ func (a *updateAction) ConflictPath(localFile, remoteFile *FileInfo) {
 }
 
 func (a *updateAction) ConflictHash(localFiles, remoteFiles []*FileInfo) {
-	if len(localFiles) == 1 && len(remoteFiles) == 1 {
-		localFile := localFiles[0]
-		remoteFile := remoteFiles[0]
-		fmt.Printf("~%s => %s\n", localFile.Path(), remoteFile.Path())
-		localFile.History = append(localFile.History, &FileEvent{
-			Path:     remoteFile.Path(),
-			Time:     remoteFile.Time(),
-			Size:     remoteFile.Size(),
-			Checksum: remoteFile.Checksum(),
-		})
-		return
+	if len(localFiles) == 1 {
+		for _, remoteFile := range remoteFiles {
+			fmt.Printf("+%s\n", remoteFile.Path())
+			a.repo.AddFile(remoteFile)
+		}
 	}
 
 	for _, file := range localFiles {

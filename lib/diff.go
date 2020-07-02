@@ -7,6 +7,7 @@ import (
 
 type DiffAction interface {
 	Unchanged(localFile, remoteFile *FileInfo)
+	MetaDataChanged(localFile, remoteFile *FileInfo)
 	Moved(localFile, remoteFile *FileInfo)
 	LocalOnly(localFile *FileInfo)
 	LocalOld(localFile *FileInfo)
@@ -89,14 +90,17 @@ func matchRemoteToLocalUsingPathAndCurrentHashes(local, remote []*FileInfo, acti
 			} else if cmp > 0 {
 				newRemote = append(newRemote, remote[j])
 				j++
-				if j >= len(local) {
+				if j >= len(remote) {
 					break
 				}
 			} else {
 				// if paths match, are not deleted and checksums match, mark them equal
-				if !local[i].IsDeleted() && !remote[j].IsDeleted() &&
-					local[i].Checksum() == remote[j].Checksum() {
-					action.Unchanged(local[i], remote[j])
+				if !local[i].IsDeleted() && !remote[j].IsDeleted() && local[i].Checksum() == remote[j].Checksum() {
+					if local[i].Time() != remote[j].Time() {
+						action.MetaDataChanged(local[i], remote[j])
+					} else {
+						action.Unchanged(local[i], remote[j])
+					}
 				} else {
 					newLocal = append(newLocal, local[i])
 					newRemote = append(newRemote, remote[j])

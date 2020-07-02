@@ -33,6 +33,10 @@ func (a *diffAction) Unchanged(localFile, remoteFile *lib.FileInfo) {
 	fmt.Printf("==:%s\n", localFile.Path())
 }
 
+func (a *diffAction) MetaDataChanged(localFile, remoteFile *lib.FileInfo) {
+	fmt.Printf("MD:%s\n", localFile.Path())
+}
+
 func (a *diffAction) Moved(localFile, remoteFile *lib.FileInfo) {
 	fmt.Printf("=>:%s => %s\n", localFile.Path(), remoteFile.Path())
 }

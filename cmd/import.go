@@ -90,6 +90,10 @@ func (a *importAction) Unchanged(localFile, remoteFile *lib.FileInfo) {
 	// fmt.Printf("==:%s\n", localFile.Path())
 }
 
+func (a *importAction) MetaDataChanged(localFile, remoteFile *lib.FileInfo) {
+	// fmt.Printf("==:%s\n", localFile.Path())
+}
+
 func (a *importAction) Moved(localFile, remoteFile *lib.FileInfo) {
 	// fmt.Printf("=>:%s => %s\n", localFile.Path(), remoteFile.Path())
 }

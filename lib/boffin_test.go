@@ -43,6 +43,14 @@ func (t *testAction) Unchanged(localFile, remoteFile *FileInfo) {
 	})
 }
 
+func (t *testAction) MetaDataChanged(localFile, remoteFile *FileInfo) {
+	t.Result = append(t.Result, &result{
+		Result: "metadata",
+		Local:  []string{localFile.Path()},
+		Remote: []string{remoteFile.Path()},
+	})
+}
+
 func (t *testAction) Moved(localFile, remoteFile *FileInfo) {
 	t.Result = append(t.Result, &result{
 		Result: "moved",

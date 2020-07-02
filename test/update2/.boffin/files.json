@@ -5,6 +5,40 @@
       {
         "history": [
           {
+            "path": "duplicate/duplicate-original.ext",
+            "size": 37,
+            "time": "2020-07-01T17:44:02.764412667Z",
+            "checksum": "gBXphp7++zad675Zs3B1C8hGbRx8APPOVPAaVx0JQcM="
+          }
+        ]
+      },
+      {
+        "history": [
+          {
+            "path": "duplicate/duplicate2-original.ext",
+            "size": 52,
+            "time": "2020-07-01T17:44:28.838032862Z",
+            "checksum": "WMrSeRTRd9NwXf/LpI7ovzS3KAo/vW8Eb5A8SLYk13I="
+          }
+        ]
+      },
+      {
+        "history": [
+          {
+            "path": "duplicate/re-added-duplicate.ext",
+            "size": 94,
+            "time": "2020-07-01T17:47:42.36679872Z",
+            "checksum": "unrBLQUJGfiVyAezEyL/mU0YQU5Eu3dP427KwPt7Fek="
+          },
+          {
+            "path": "duplicate/re-added-duplicate.ext",
+            "time": "2020-07-01T18:49:31.237695917Z"
+          }
+        ]
+      },
+      {
+        "history": [
+          {
             "path": "equal-with-history.ext",
             "size": 23,
             "time": "2020-05-21T04:06:07.654626019Z",
@@ -29,7 +63,7 @@
           {
             "path": "equal.ext",
             "size": 10,
-            "time": "2020-02-06T13:56:51.571756332Z",
+            "time": "2020-05-21T04:05:04.987490341Z",
             "checksum": "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrI="
           }
         ]
@@ -39,7 +73,7 @@
           {
             "path": "sub1/equal.ext",
             "size": 10,
-            "time": "2020-02-06T13:57:02.90203166Z",
+            "time": "2020-02-25T04:19:14.250535938Z",
             "checksum": "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE="
           }
         ]

@@ -26,6 +26,90 @@ func TestUpdate(t *testing.T) {
 		{
 			History: []*FileEvent{
 				&FileEvent{
+					Path:     "duplicate/duplicate-new.ext",
+					Size:     37,
+					Time:     parseTime("2020-07-01T18:22:57.265085787Z"),
+					Checksum: "gBXphp7++zad675Zs3B1C8hGbRx8APPOVPAaVx0JQcM=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "duplicate/duplicate-original.ext",
+					Size:     37,
+					Time:     parseTime("2020-07-01T17:44:02.764412667Z"),
+					Checksum: "gBXphp7++zad675Zs3B1C8hGbRx8APPOVPAaVx0JQcM=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "duplicate/duplicate2-new1.ext",
+					Size:     52,
+					Time:     parseTime("2020-07-01T18:23:11.105220251Z"),
+					Checksum: "WMrSeRTRd9NwXf/LpI7ovzS3KAo/vW8Eb5A8SLYk13I=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "duplicate/duplicate2-new2.ext",
+					Size:     52,
+					Time:     parseTime("2020-07-01T18:23:13.848580243Z"),
+					Checksum: "WMrSeRTRd9NwXf/LpI7ovzS3KAo/vW8Eb5A8SLYk13I=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "duplicate/duplicate2-original.ext",
+					Size:     52,
+					Time:     parseTime("2020-07-01T17:44:28.838032862Z"),
+					Checksum: "WMrSeRTRd9NwXf/LpI7ovzS3KAo/vW8Eb5A8SLYk13I=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "duplicate/re-added-duplicate-1.ext",
+					Size:     94,
+					Time:     parseTime("2020-07-01T18:48:39.061712028Z"),
+					Checksum: "unrBLQUJGfiVyAezEyL/mU0YQU5Eu3dP427KwPt7Fek=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "duplicate/re-added-duplicate-2.ext",
+					Size:     94,
+					Time:     parseTime("2020-07-01T18:48:48.178439413Z"),
+					Checksum: "unrBLQUJGfiVyAezEyL/mU0YQU5Eu3dP427KwPt7Fek=",
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
+					Path:     "duplicate/re-added-duplicate.ext",
+					Size:     94,
+					Time:     parseTime("2020-07-01T17:47:42.36679872Z"),
+					Checksum: "unrBLQUJGfiVyAezEyL/mU0YQU5Eu3dP427KwPt7Fek=",
+				},
+				&FileEvent{
+					Path: "duplicate/re-added-duplicate.ext",
+					Time: parseTime("2020-07-01T18:49:31.237695917Z"),
+				},
+			},
+		},
+		{
+			History: []*FileEvent{
+				&FileEvent{
 					Path:     "equal-with-history.ext",
 					Size:     23,
 					Time:     parseTime("2020-05-21T04:06:07.654626019Z"),
@@ -50,7 +134,7 @@ func TestUpdate(t *testing.T) {
 				&FileEvent{
 					Path:     "equal.ext",
 					Size:     10,
-					Time:     parseTime("2020-02-06T13:56:51.571756332Z"),
+					Time:     parseTime("2020-05-21T04:05:04.987490341Z"),
 					Checksum: "mv0rsY4Lof04c4eVesQRoggxIMQBLzv82jX0gglIhrI=",
 				},
 			},
@@ -184,7 +268,7 @@ func TestUpdate(t *testing.T) {
 				&FileEvent{
 					Path:     "sub1/equal.ext",
 					Size:     10,
-					Time:     parseTime("2020-02-06T13:57:02.90203166Z"),
+					Time:     parseTime("2020-02-25T04:19:14.250535938Z"),
 					Checksum: "vQTuoHT8OnxI9g7fcZnEeTC9jcbX1NuRsS4gyDQkxjE=",
 				},
 			},

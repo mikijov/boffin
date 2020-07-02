@@ -20,6 +20,7 @@ package cmd
 
 import (
 	"log"
+	"os"
 	"path/filepath"
 
 	"git.voreni.com/miki/boffin/lib"
@@ -46,6 +47,9 @@ var verifyCmd = &cobra.Command{
 			log.Fatalf("ERROR: %v", err)
 		}
 
+		got_error := false
+		got_mismatch := false
+
 		for _, file := range local.GetFiles() {
 			if file.IsDeleted() {
 				continue
@@ -54,11 +58,20 @@ var verifyCmd = &cobra.Command{
 			checksum, err := lib.CalculateChecksum(path)
 			if err != nil {
 				log.Printf("ERROR: %v", err)
+				got_error = true
 			} else if checksum != file.Checksum() {
 				log.Printf("%s: checksum does not match", file.Path())
+				got_mismatch = true
 			} else {
 				log.Printf("%s: OK", file.Path())
 			}
+		}
+
+		if got_error {
+			os.Exit(2)
+		}
+		if got_mismatch {
+			os.Exit(1)
 		}
 	},
 }
