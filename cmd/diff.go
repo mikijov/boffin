@@ -78,19 +78,19 @@ func (a *diffAction) ConflictPath(localFile, remoteFile *lib.FileInfo) {
 }
 
 func (a *diffAction) ConflictHash(localFiles, remoteFiles []*lib.FileInfo) {
-	if len(localFiles) == 1 && len(remoteFiles) == 1 {
-		localFile := localFiles[0]
-		remoteFile := remoteFiles[0]
-		fmt.Printf("=>:%s => %s\n", localFile.Path(), remoteFile.Path())
-		localFile.History = append(localFile.History, &lib.FileEvent{
-			Path:     remoteFile.Path(),
-			Time:     remoteFile.Time(),
-			Size:     remoteFile.Size(),
-			Checksum: remoteFile.Checksum(),
-		})
-		return
-	}
-
+	// if len(localFiles) == 1 && len(remoteFiles) == 1 {
+	// 	localFile := localFiles[0]
+	// 	remoteFile := remoteFiles[0]
+	// 	fmt.Printf("=>:%s => %s\n", localFile.Path(), remoteFile.Path())
+	// 	localFile.History = append(localFile.History, &lib.FileEvent{
+	// 		Path:     remoteFile.Path(),
+	// 		Time:     remoteFile.Time(),
+	// 		Size:     remoteFile.Size(),
+	// 		Checksum: remoteFile.Checksum(),
+	// 	})
+	// 	return
+	// }
+	//
 	for _, file := range localFiles {
 		fmt.Printf("!!:%s\n", file.Path())
 	}

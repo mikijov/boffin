@@ -28,11 +28,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var doMove bool
+var doDelete bool
+
 // importCmd represents the import command
 var importCmd = &cobra.Command{
 	Use:   "import <remote-repo>",
 	Short: "Import changes made in the remote repository.",
-	Long: `Import will use meta-data from the local and remote repository silimarly
+	Long: `Import will use meta-data from the local and remote repository similarly
 	to 'diff' and compare their contents. Any files that have been added or
 	modified in the remote repository will be imported into local repository.
 	Options can be used to control which changes will be imported.`,
@@ -95,7 +98,23 @@ func (a *importAction) MetaDataChanged(localFile, remoteFile *lib.FileInfo) {
 }
 
 func (a *importAction) Moved(localFile, remoteFile *lib.FileInfo) {
-	// fmt.Printf("=>:%s => %s\n", localFile.Path(), remoteFile.Path())
+	if doMove {
+		src := filepath.Join(a.local.GetBaseDir(), localFile.Path())
+		dest := filepath.Join(a.local.GetBaseDir(), remoteFile.Path())
+
+		fmt.Printf("mv %s %s\n", src, dest)
+		if err := moveFile(src, dest); err != nil {
+			log.Printf("%v", err)
+			a.exit = 1
+		} else {
+			localFile.History = append(localFile.History, &lib.FileEvent{
+				Path:     remoteFile.Path(),
+				Time:     localFile.Time(),
+				Size:     localFile.Size(),
+				Checksum: localFile.Checksum(),
+			})
+		}
+	}
 }
 
 func (a *importAction) LocalOnly(localFile *lib.FileInfo) {
@@ -135,7 +154,19 @@ func (a *importAction) LocalDeleted(localFile, remoteFile *lib.FileInfo) {
 }
 
 func (a *importAction) RemoteDeleted(localFile, remoteFile *lib.FileInfo) {
-	// fmt.Printf("R-:%s\n", remoteFile.Path())
+	if doDelete {
+		localPath := filepath.Join(a.local.GetBaseDir(), localFile.Path())
+
+		fmt.Printf("rm %s\n", localPath)
+		if !dryRun {
+			if err := os.Remove(localPath); err != nil {
+				log.Printf("%v", err)
+				a.exit = 1
+			} else {
+				localFile.MarkDeleted()
+			}
+		}
+	}
 }
 
 func (a *importAction) LocalChanged(localFile, remoteFile *lib.FileInfo) {
@@ -166,19 +197,19 @@ func (a *importAction) ConflictPath(localFile, remoteFile *lib.FileInfo) {
 }
 
 func (a *importAction) ConflictHash(localFiles, remoteFiles []*lib.FileInfo) {
-	if len(localFiles) == 1 && len(remoteFiles) == 1 {
-		localFile := localFiles[0]
-		remoteFile := remoteFiles[0]
-		fmt.Printf("=>:%s => %s\n", localFile.Path(), remoteFile.Path())
-		localFile.History = append(localFile.History, &lib.FileEvent{
-			Path:     remoteFile.Path(),
-			Time:     remoteFile.Time(),
-			Size:     remoteFile.Size(),
-			Checksum: remoteFile.Checksum(),
-		})
-		return
-	}
-
+	// if len(localFiles) == 1 && len(remoteFiles) == 1 {
+	// 	localFile := localFiles[0]
+	// 	remoteFile := remoteFiles[0]
+	// 	fmt.Printf("=>:%s => %s\n", localFile.Path(), remoteFile.Path())
+	// 	localFile.History = append(localFile.History, &lib.FileEvent{
+	// 		Path:     remoteFile.Path(),
+	// 		Time:     remoteFile.Time(),
+	// 		Size:     remoteFile.Size(),
+	// 		Checksum: remoteFile.Checksum(),
+	// 	})
+	// 	return
+	// }
+	//
 	for _, file := range localFiles {
 		fmt.Printf("!!:%s\n", file.Path())
 	}
@@ -194,7 +225,7 @@ func addFile(src, dest string) error {
 		}
 		return fmt.Errorf("destination file exists for addFile operation: %s", dest)
 	} else if os.IsNotExist(err) {
-		fmt.Printf("Add: %s => %s\n", src, dest)
+		fmt.Printf("cp %s %s\n", src, dest)
 		// this path is what is expected
 		return _copyFile(src, dest)
 	} else {
@@ -207,7 +238,7 @@ func replaceFile(src, dest string) error {
 		if fi.IsDir() {
 			return fmt.Errorf("destination is a directory: %s", dest)
 		}
-		fmt.Printf("Update: %s => %s\n", src, dest)
+		fmt.Printf("cp -f %s %s\n", src, dest)
 		// this path is what is expected
 		return _copyFile(src, dest)
 	} else if os.IsNotExist(err) {
@@ -287,6 +318,34 @@ func _copyFile(src, dest string) error {
 	return nil
 }
 
+// Move/rename the src file to dest. Fail if destination already exists.
+func moveFile(src, dest string) error {
+	if fi, err := os.Stat(dest); err == nil {
+		if fi.IsDir() {
+			return fmt.Errorf("destination is a directory for moveFile operation: %s", dest)
+		}
+		return fmt.Errorf("destination file exists for moveFile operation: %s", dest)
+	} else if os.IsNotExist(err) {
+		// this path is what is expected
+	} else {
+		return fmt.Errorf("unexpected error when checking '%s' during addFile operation: %s", dest, err)
+	}
+
+	if dryRun {
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(dest), 0777); err != nil {
+		return err
+	}
+
+	if err := os.Rename(src, dest); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func init() {
 	rootCmd.AddCommand(importCmd)
 
@@ -295,6 +354,8 @@ func init() {
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
 	// importCmd.PersistentFlags().String("foo", "", "A help for foo")
+	importCmd.PersistentFlags().BoolVar(&doMove, "move", false, "move and rename any files moved or renamed remotely")
+	importCmd.PersistentFlags().BoolVar(&doDelete, "delete", false, "delete files that were deleted remotely")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:

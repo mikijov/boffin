@@ -270,6 +270,17 @@ func matchUsingHistoricalHashes(local, remote []*FileInfo, action DiffAction) (n
 	for localHash, localFileIndices := range localByHash {
 		remoteFileIndices, ok := remoteByHash[localHash]
 		if ok {
+			if len(localFileIndices) == 1 && len(remoteFileIndices) == 1 {
+				localFileIndex := localFileIndices[0]
+				remoteFileIndex := remoteFileIndices[0]
+				if local[localFileIndex].IsDeleted() && remote[remoteFileIndex].IsDeleted() {
+					action.Unchanged(local[localFileIndex], remote[remoteFileIndex])
+					local[localFileIndex] = nil
+					remote[remoteFileIndex] = nil
+					continue
+				}
+			}
+
 			localFiles := make([]*FileInfo, 0, len(localFileIndices))
 			for _, localFileIndex := range localFileIndices {
 				if local[localFileIndex] != nil {

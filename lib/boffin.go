@@ -40,7 +40,7 @@ import (
 // FileEvent ...
 type FileEvent struct {
 	Path     string    `json:"path"`
-	Size     int64     `json:"size"`
+	Size     int64     `json:"size,omitempty"`
 	Time     time.Time `json:"time"`
 	Checksum string    `json:"checksum,omitempty"`
 }
