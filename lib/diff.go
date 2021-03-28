@@ -26,22 +26,22 @@ func Diff(local, remote Boffin, action DiffAction) error {
 	remoteFiles := remote.GetFiles()
 	var err error
 
-	localFiles, remoteFiles, err =
+	localFiles, remoteFiles, _ =
 		matchRemoteToLocalUsingPathAndCurrentHashes(localFiles, remoteFiles, action)
 		// equal
-	localFiles, remoteFiles, err =
+	localFiles, remoteFiles, _ =
 		matchRemoteToLocalUsingCurrentHashes(localFiles, remoteFiles, action)
 		// moved/renamed
-	localFiles, remoteFiles, err =
+	localFiles, remoteFiles, _ =
 		matchCurrentRemoteToHistoricalLocalUsingHashes(localFiles, remoteFiles, action)
 		// moved/renamed and changed; conflict if multiple matches
-	localFiles, remoteFiles, err =
+	localFiles, remoteFiles, _ =
 		matchCurrentLocalToHistoricalRemoteUsingHashed(localFiles, remoteFiles, action)
 		// moved/renamed and changed; conflict if multiple matches
-	localFiles, remoteFiles, err =
+	localFiles, remoteFiles, _ =
 		matchUsingHistoricalHashes(localFiles, remoteFiles, action)
 		// conflict
-	localFiles, remoteFiles, err =
+	localFiles, remoteFiles, _ =
 		matchUsingPath(localFiles, remoteFiles, action)
 		// conflict
 
@@ -190,7 +190,11 @@ func matchCurrentRemoteToHistoricalLocalUsingHashes(local, remote []*FileInfo, a
 		localFileIndices, ok := localByHash[remoteHash]
 		if ok {
 			if len(localFileIndices) == 1 && len(remoteFiles) == 1 {
-				action.LocalChanged(local[localFileIndices[0]], remoteFiles[0])
+				if local[localFileIndices[0]].IsDeleted() {
+					action.LocalDeleted(local[localFileIndices[0]], remoteFiles[0])
+				} else {
+					action.LocalChanged(local[localFileIndices[0]], remoteFiles[0])
+				}
 				local[localFileIndices[0]] = nil
 			} else {
 				localFiles := make([]*FileInfo, 0, len(localFileIndices))
@@ -236,7 +240,11 @@ func matchCurrentLocalToHistoricalRemoteUsingHashed(local, remote []*FileInfo, a
 		remoteFileIndices, ok := remoteByHash[localHash]
 		if ok {
 			if len(remoteFileIndices) == 1 && len(localFiles) == 1 {
-				action.RemoteChanged(localFiles[0], remote[remoteFileIndices[0]])
+				if remote[remoteFileIndices[0]].IsDeleted() {
+					action.RemoteDeleted(localFiles[0], remote[remoteFileIndices[0]])
+				} else {
+					action.RemoteChanged(localFiles[0], remote[remoteFileIndices[0]])
+				}
 				remote[remoteFileIndices[0]] = nil
 			} else {
 				remoteFiles := make([]*FileInfo, 0, len(remoteFileIndices))

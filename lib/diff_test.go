@@ -273,6 +273,30 @@ func TestDiff(t *testing.T) {
 					},
 				},
 			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "local-deleted-l",
+						Size:     10,
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "local-deleted",
+					},
+					&FileEvent{
+						Path: "local-deleted-l",
+						Time: parseTime("2020-01-02T12:34:56Z"),
+					},
+				},
+			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "remote-deleted-l",
+						Size:     10,
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "remote-deleted",
+					},
+				},
+			},
 		},
 	}
 	var remote Boffin = &db{
@@ -527,6 +551,30 @@ func TestDiff(t *testing.T) {
 					},
 				},
 			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "local-deleted-r",
+						Size:     10,
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "local-deleted",
+					},
+				},
+			},
+			{
+				History: []*FileEvent{
+					&FileEvent{
+						Path:     "remote-deleted-r",
+						Size:     10,
+						Time:     parseTime("2020-01-01T12:34:56Z"),
+						Checksum: "remote-deleted",
+					},
+					&FileEvent{
+						Path: "remote-deleted-r",
+						Time: parseTime("2020-01-02T12:34:56Z"),
+					},
+				},
+			},
 		},
 	}
 
@@ -538,12 +586,14 @@ func TestDiff(t *testing.T) {
 		{Result: "conflict", Local: []string{"same-name-conflict"}, Remote: []string{"same-name-conflict"}},
 		{Result: "local-changed", Local: []string{"local-changed-l-1-3"}, Remote: []string{"local-changed-r-1-2"}},
 		{Result: "local-changed", Local: []string{"local-changed-l-2-3"}, Remote: []string{"local-changed-r-2-1"}},
+		{Result: "local-deleted", Local: []string{"local-deleted-l"}, Remote: []string{"local-deleted-r"}},
 		{Result: "local-old", Local: []string{"hanging-delete-local"}},
 		{Result: "local-only", Local: []string{"added-local"}},
 		{Result: "local-only", Local: []string{"added-local2"}},
 		{Result: "moved", Local: []string{"renamed-local"}, Remote: []string{"renamed-remote"}},
 		{Result: "remote-changed", Local: []string{"remote-changed-l-1-2"}, Remote: []string{"remote-changed-r-1-3"}},
 		{Result: "remote-changed", Local: []string{"remote-changed-l-2-1"}, Remote: []string{"remote-changed-r-2-3"}},
+		{Result: "remote-deleted", Local: []string{"remote-deleted-l"}, Remote: []string{"remote-deleted-r"}},
 		{Result: "remote-old", Remote: []string{"hanging-delete-remote"}},
 		{Result: "remote-only", Remote: []string{"added-remote"}},
 		{Result: "remote-only", Remote: []string{"added-remote2"}},
