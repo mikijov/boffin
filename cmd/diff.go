@@ -26,55 +26,94 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	diffHideUnchanged      = false
+	diffHideMetadataChange = false
+	diffHideMoved          = false
+	diffHideLocalOnly      = false
+	diffHideLocalOld       = false
+	diffHideRemoteOnly     = false
+	diffHideRemoteOld      = false
+	diffHideLocalDeleted   = false
+	diffHideRemoteDeleted  = false
+	diffHideLocalChanged   = false
+	diffHideRemoteChanged  = false
+	diffHideConflict       = false
+)
+
 type diffAction struct {
 }
 
 func (a *diffAction) Unchanged(localFile, remoteFile *lib.FileInfo) {
-	fmt.Printf("==:%s\n", localFile.Path())
+	if !diffHideUnchanged {
+		fmt.Printf("==:%s\n", localFile.Path())
+	}
 }
 
 func (a *diffAction) MetaDataChanged(localFile, remoteFile *lib.FileInfo) {
-	fmt.Printf("MD:%s\n", localFile.Path())
+	if !diffHideMetadataChange {
+		fmt.Printf("MD:%s\n", localFile.Path())
+	}
 }
 
 func (a *diffAction) Moved(localFile, remoteFile *lib.FileInfo) {
-	fmt.Printf("=>:%s => %s\n", localFile.Path(), remoteFile.Path())
+	if !diffHideMoved {
+		fmt.Printf("=>:%s => %s\n", localFile.Path(), remoteFile.Path())
+	}
 }
 
 func (a *diffAction) LocalOnly(localFile *lib.FileInfo) {
-	fmt.Printf("L+:%s\n", localFile.Path())
+	if !diffHideLocalOnly {
+		fmt.Printf("L+:%s\n", localFile.Path())
+	}
 }
 
 func (a *diffAction) LocalOld(localFile *lib.FileInfo) {
-	// fmt.Printf("L+:%s\n", localFile.Path())
+	if !diffHideLocalOld {
+		// fmt.Printf("L+:%s\n", localFile.Path())
+	}
 }
 
 func (a *diffAction) RemoteOnly(remoteFile *lib.FileInfo) {
-	fmt.Printf("R+:%s\n", remoteFile.Path())
+	if !diffHideRemoteOnly {
+		fmt.Printf("R+:%s\n", remoteFile.Path())
+	}
 }
 
 func (a *diffAction) RemoteOld(remoteFile *lib.FileInfo) {
-	// fmt.Printf("R+:%s\n", remoteFile.Path())
+	if !diffHideRemoteOld {
+		// fmt.Printf("R+:%s\n", remoteFile.Path())
+	}
 }
 
 func (a *diffAction) LocalDeleted(localFile, remoteFile *lib.FileInfo) {
-	fmt.Printf("L-:%s\n", localFile.Path())
+	if !diffHideLocalDeleted {
+		fmt.Printf("L-:%s\n", localFile.Path())
+	}
 }
 
 func (a *diffAction) RemoteDeleted(localFile, remoteFile *lib.FileInfo) {
-	fmt.Printf("R-:%s\n", remoteFile.Path())
+	if !diffHideRemoteDeleted {
+		fmt.Printf("R-:%s\n", remoteFile.Path())
+	}
 }
 
 func (a *diffAction) LocalChanged(localFile, remoteFile *lib.FileInfo) {
-	fmt.Printf(">>:%s\n", localFile.Path())
+	if !diffHideLocalChanged {
+		fmt.Printf(">>:%s\n", localFile.Path())
+	}
 }
 
 func (a *diffAction) RemoteChanged(localFile, remoteFile *lib.FileInfo) {
-	fmt.Printf("<<:%s\n", remoteFile.Path())
+	if !diffHideRemoteChanged {
+		fmt.Printf("<<:%s\n", remoteFile.Path())
+	}
 }
 
 func (a *diffAction) ConflictPath(localFile, remoteFile *lib.FileInfo) {
-	fmt.Printf("!!:%s ! %s\n", localFile.Path(), remoteFile.Path())
+	if !diffHideConflict {
+		fmt.Printf("!!:%s ! %s\n", localFile.Path(), remoteFile.Path())
+	}
 }
 
 func (a *diffAction) ConflictHash(localFiles, remoteFiles []*lib.FileInfo) {
@@ -149,4 +188,17 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// diffCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	diffCmd.Flags().BoolVar(&diffHideUnchanged, "hide-unchanged", false, "hide files that have not changed")
+	diffCmd.Flags().BoolVar(&diffHideMetadataChange, "hide-metadata-change", false, "hide files where only metadata has changed, but are otherwise same")
+	diffCmd.Flags().BoolVar(&diffHideMoved, "hide-moved", false, "hide files that have moved")
+	diffCmd.Flags().BoolVar(&diffHideLocalOnly, "hide-local-only", false, "hide files that only exist in local repo")
+	diffCmd.Flags().BoolVar(&diffHideLocalOld, "hide-local-old", false, "hide files whose local version is old")
+	diffCmd.Flags().BoolVar(&diffHideRemoteOnly, "hide-remote-only", false, "hide files that only exist in remote repo")
+	diffCmd.Flags().BoolVar(&diffHideRemoteOld, "hide-remote-old", false, "hide files whole remote version is old")
+	diffCmd.Flags().BoolVar(&diffHideLocalDeleted, "hide-local-deleted", false, "hide files that were locally deleted, but still exist in remote repo")
+	diffCmd.Flags().BoolVar(&diffHideRemoteDeleted, "hide-remote-deleted", false, "hide files that were remotely deleted, but still exist in local repo")
+	diffCmd.Flags().BoolVar(&diffHideLocalChanged, "hide-local-changed", false, "hide changed files which local version is newest")
+	diffCmd.Flags().BoolVar(&diffHideRemoteChanged, "hide-remote-changed", false, "hide changed files which remote version is newest")
+	diffCmd.Flags().BoolVar(&diffHideConflict, "hide-conflict", false, "hide files which have conflicting changes in both local and remote repo")
 }

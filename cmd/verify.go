@@ -47,8 +47,8 @@ var verifyCmd = &cobra.Command{
 			log.Fatalf("ERROR: %v", err)
 		}
 
-		got_error := false
-		got_mismatch := false
+		gotError := false
+		gotMismatch := false
 
 		for _, file := range local.GetFiles() {
 			if file.IsDeleted() {
@@ -58,19 +58,19 @@ var verifyCmd = &cobra.Command{
 			checksum, err := lib.CalculateChecksum(path)
 			if err != nil {
 				log.Printf("ERROR: %v", err)
-				got_error = true
+				gotError = true
 			} else if checksum != file.Checksum() {
 				log.Printf("%s: checksum does not match", file.Path())
-				got_mismatch = true
+				gotMismatch = true
 			} else {
 				log.Printf("%s: OK", file.Path())
 			}
 		}
 
-		if got_error {
+		if gotError {
 			os.Exit(2)
 		}
-		if got_mismatch {
+		if gotMismatch {
 			os.Exit(1)
 		}
 	},

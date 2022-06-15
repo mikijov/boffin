@@ -264,7 +264,12 @@ func _copyFile(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() {
+		err := in.Close()
+		if err != nil {
+			log.Printf("%v", err)
+		}
+	}()
 
 	if err := os.MkdirAll(filepath.Dir(dest), 0777); err != nil {
 		return err
@@ -276,8 +281,16 @@ func _copyFile(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
-	defer os.Remove(tempDest)
+	defer func() {
+		err := out.Close()
+		if err != nil {
+			log.Printf("%v", err)
+		}
+		err = os.Remove(tempDest)
+		if err != nil {
+			log.Printf("%v", err)
+		}
+	}()
 
 	_, err = io.Copy(out, in)
 	if err != nil {
@@ -304,7 +317,12 @@ func _copyFile(src, dest string) error {
 			return backupErr
 		}
 	} else {
-		defer os.Rename(backupDest, dest)
+		defer func() {
+			err := os.Rename(backupDest, dest)
+			if err != nil {
+				log.Printf("%v", err)
+			}
+		}()
 	}
 	if err := os.Rename(tempDest, dest); err != nil {
 		return err
