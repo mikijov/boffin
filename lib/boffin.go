@@ -26,6 +26,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"time"
 )
@@ -96,6 +97,7 @@ func (fi *FileInfo) IsDeleted() bool {
 	return fi.History[len(fi.History)-1].Checksum == ""
 }
 
+// MarkDeleted ...
 func (fi *FileInfo) MarkDeleted() {
 	if !fi.IsDeleted() {
 		fi.History = append(fi.History, &FileEvent{
@@ -125,10 +127,48 @@ type Boffin interface {
 	Save() error
 }
 
+type ignorePattern struct {
+	pattern string
+	re      *regexp.Regexp
+	used    bool
+}
+
+type ignore []ignorePattern
+
+func compileIgnorePatterns(patterns []string) ignore {
+	retval := make([]ignorePattern, 0, len(patterns))
+
+	for _, pattern := range patterns {
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			log.Printf("invalid ignore pattern: %s", pattern)
+			re = nil
+		}
+		retval = append(retval, ignorePattern{
+			pattern: pattern,
+			re:      re,
+		})
+	}
+
+	return retval
+}
+
+func (i ignore) getPatternSlice() []string {
+	retval := make([]string, 0, len(i))
+
+	for _, p := range i {
+		retval = append(retval, p.pattern)
+	}
+
+	return retval
+}
+
 type db struct {
 	dbDir        string
 	absBaseDir   string
 	absImportDir string
+
+	ignore ignore
 
 	// this is simply kept for saving purposes
 	baseDir   string
@@ -187,11 +227,19 @@ const newFilesFilename = "files.json.tmp"
 
 type jsonStruct struct {
 	V1 *v1Struct `json:"v1,omitempty"`
+	V2 *v2Struct `json:"v2,omitempty"`
 }
 
 type v1Struct struct {
 	BaseDir   string      `json:"base-dir"`
 	ImportDir string      `json:"import-dir"`
+	Files     []*FileInfo `json:"files"`
+}
+
+type v2Struct struct {
+	BaseDir   string      `json:"base-dir"`
+	ImportDir string      `json:"import-dir"`
+	Ignore    []string    `json:"ignore"`
 	Files     []*FileInfo `json:"files"`
 }
 
@@ -248,21 +296,26 @@ func (db *db) Save() error {
 	})
 
 	rawJSON := &jsonStruct{
-		V1: &v1Struct{
+		V2: &v2Struct{
 			BaseDir: db.baseDir,
+			Ignore:  db.ignore.getPatternSlice(),
 			Files:   db.files,
 		},
 	}
 
 	newFilename := filepath.Join(db.dbDir, newFilesFilename)
-	defer os.Remove(newFilename) // cleanup; will work only if the old file could not be replaced
+	defer func() {
+		_ = os.Remove(newFilename) // cleanup; will work only if the old file could not be replaced
+	}()
 
 	{ // write new file
 		file, err := os.OpenFile(newFilename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		defer func() {
+			_ = file.Close()
+		}()
 
 		encoder := json.NewEncoder(file)
 		if encoder == nil {
@@ -270,7 +323,9 @@ func (db *db) Save() error {
 		}
 		encoder.SetIndent("", "  ")
 
-		encoder.Encode(rawJSON)
+		if err = encoder.Encode(rawJSON); err != nil {
+			return err
+		}
 	}
 
 	{ // now replace old file with the new one
@@ -283,9 +338,11 @@ func (db *db) Save() error {
 			return fmt.Errorf("critical error; failed to rename '%s' to '%s'", newFilename, filename)
 		}
 
-		if fi, err := os.Stat(filename); err == nil {
-			os.Chmod(filename, fi.Mode()&0444)
-		} else {
+		fi, err := os.Stat(filename)
+		if err == nil {
+			err = os.Chmod(filename, fi.Mode()&0444)
+		}
+		if err != nil {
 			log.Printf("warning: failed to make repo file read only")
 		}
 	}
@@ -301,7 +358,9 @@ func LoadBoffin(dbDir string) (Boffin, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer boffinFile.Close()
+	defer func() {
+		_ = boffinFile.Close()
+	}()
 
 	decoder := json.NewDecoder(boffinFile)
 	decoder.DisallowUnknownFields()
@@ -317,32 +376,46 @@ func LoadBoffin(dbDir string) (Boffin, error) {
 		return nil, fmt.Errorf("unexpected contents at the end of config file")
 	}
 
-	if rawJSON.V1 == nil {
+	var retval *db
+
+	if rawJSON.V2 != nil {
+		retval = &db{
+			dbDir:     dbDir,
+			baseDir:   rawJSON.V2.BaseDir,
+			importDir: rawJSON.V2.ImportDir,
+			ignore:    compileIgnorePatterns(rawJSON.V2.Ignore),
+			files:     rawJSON.V2.Files,
+		}
+	} else if rawJSON.V1 != nil {
+		retval = &db{
+			dbDir:     dbDir,
+			baseDir:   rawJSON.V1.BaseDir,
+			importDir: rawJSON.V1.ImportDir,
+			files:     rawJSON.V1.Files,
+		}
+	} else {
 		return nil, fmt.Errorf("config file is empty")
 	}
 
-	db := &db{
-		dbDir:     dbDir,
-		baseDir:   rawJSON.V1.BaseDir,
-		importDir: rawJSON.V1.ImportDir,
-		files:     rawJSON.V1.Files,
-	}
-
-	if filepath.IsAbs(db.baseDir) {
-		db.absBaseDir, err = cleanPath(db.baseDir)
+	if filepath.IsAbs(retval.baseDir) {
+		retval.absBaseDir, err = cleanPath(retval.baseDir)
 	} else {
-		db.absBaseDir, err = cleanPath(filepath.Join(dbDir, db.baseDir))
-	}
-	if filepath.IsAbs(db.importDir) {
-		db.absImportDir, err = cleanPath(db.importDir)
-	} else {
-		db.absImportDir, err = cleanPath(filepath.Join(db.absBaseDir, db.importDir))
+		retval.absBaseDir, err = cleanPath(filepath.Join(dbDir, retval.baseDir))
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	return db, nil
+	if filepath.IsAbs(retval.importDir) {
+		retval.absImportDir, err = cleanPath(retval.importDir)
+	} else {
+		retval.absImportDir, err = cleanPath(filepath.Join(retval.absBaseDir, retval.importDir))
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return retval, nil
 }
 
 // ConstuctDbPath ...
@@ -366,7 +439,7 @@ func FindBoffinDir(dir string) (string, error) {
 	}
 
 	// look into current or any parent directory for a root which has defaultDbDir
-	for true {
+	for {
 		dbDir := filepath.Join(dir, defaultDbDir)
 		info, err := os.Stat(dbDir)
 		if err == nil && info.IsDir() {
@@ -381,12 +454,15 @@ func FindBoffinDir(dir string) (string, error) {
 	return "", fmt.Errorf("could not find %s dir", defaultDbDir)
 }
 
+// CalculateChecksum ...
 func CalculateChecksum(path string) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {

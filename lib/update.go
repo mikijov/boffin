@@ -25,8 +25,12 @@ import (
 	"strings"
 )
 
+// FilterFunc is function type, that determines if a file should be processed or
+// not. Return true to process file, or false if it should be skipped.
 type FilterFunc func(info os.FileInfo, local *FileInfo) bool
 
+// CheckIfMetaChanged implements FilterFunc, and will return true, i.e. it will
+// trigger file check, if any of the file size of time has changes.
 func CheckIfMetaChanged(info os.FileInfo, localFile *FileInfo) bool {
 	if localFile == nil {
 		return true
@@ -36,10 +40,13 @@ func CheckIfMetaChanged(info os.FileInfo, localFile *FileInfo) bool {
 		!info.ModTime().Equal(localFile.Time())
 }
 
+// ForceCheck implements FilterFunc, and will force every file to be checked.
 func ForceCheck(info os.FileInfo, local *FileInfo) bool {
 	return true
 }
 
+// Update will compare the boffin repo with the files in the monitored directory
+// and update the repo with any changes.
 func Update(repo Boffin, filter FilterFunc) error {
 	if filter == nil {
 		filter = CheckIfMetaChanged

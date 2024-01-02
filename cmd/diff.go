@@ -69,9 +69,9 @@ func (a *diffAction) LocalOnly(localFile *lib.FileInfo) {
 }
 
 func (a *diffAction) LocalOld(localFile *lib.FileInfo) {
-	if !diffHideLocalOld {
-		// fmt.Printf("L+:%s\n", localFile.Path())
-	}
+	// if !diffHideLocalOld {
+	// 	fmt.Printf("L+:%s\n", localFile.Path())
+	// }
 }
 
 func (a *diffAction) RemoteOnly(remoteFile *lib.FileInfo) {
@@ -81,9 +81,9 @@ func (a *diffAction) RemoteOnly(remoteFile *lib.FileInfo) {
 }
 
 func (a *diffAction) RemoteOld(remoteFile *lib.FileInfo) {
-	if !diffHideRemoteOld {
-		// fmt.Printf("R+:%s\n", remoteFile.Path())
-	}
+	// if !diffHideRemoteOld {
+	// 	fmt.Printf("R+:%s\n", remoteFile.Path())
+	// }
 }
 
 func (a *diffAction) LocalDeleted(localFile, remoteFile *lib.FileInfo) {

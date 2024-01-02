@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+// DiffAction interface receives events when diffing two boffin repos. You can
+// implement all or only those events handlers you are interested in.
 type DiffAction interface {
 	Unchanged(localFile, remoteFile *FileInfo)
 	MetaDataChanged(localFile, remoteFile *FileInfo)
@@ -21,6 +23,8 @@ type DiffAction interface {
 	ConflictPath(localFile, remoteFile *FileInfo)
 }
 
+// Diff will compare two boffin repos, 'local' and 'remote' ones, and will
+// trigger DiffAction events for all files.
 func Diff(local, remote Boffin, action DiffAction) error {
 	localFiles := local.GetFiles()
 	remoteFiles := remote.GetFiles()
@@ -372,7 +376,7 @@ func filesToPathMap(files []*FileInfo) map[string]*FileInfo {
 	return fileMap
 }
 
-// filesToHashMap ...
+// FilesToHashMap ...
 func FilesToHashMap(files []*FileInfo) map[string][]*FileInfo {
 	fileMap := make(map[string][]*FileInfo)
 
